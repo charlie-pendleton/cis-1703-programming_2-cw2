@@ -82,13 +82,82 @@ class TransactionManager:
   
   
 class ForecastService:
-  pass
+  def __init__(self, transaction_manager):
+      self.manager = transaction_manager
+
+  def forecast_monthly_expenses(self):
+      expenses = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
+      if not expenses:
+          return 0
+      return sum(expenses) / len(expenses)
+
+  def forecast_monthly_income(self):
+      incomes = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
+      if not incomes:
+          return 0
+      return sum(incomes) / len(incomes)
+
+  def forecast_recurring_bills(self):
+      return [t for t in self.manager.transactions if isinstance(t, RecurringBill)]
 
 class BudgetManager:
-  pass
+  def __init__(self, monthly_budget):
+      self.monthly_budget = monthly_budget
+
+  def calculate_total_expenses(self, transaction_manager):
+      return sum(t.Amount for t in transaction_manager.transactions if isinstance(t, Expense))
+
+  def remaining_budget(self, transaction_manager):
+      spent = self.calculate_total_expenses(transaction_manager)
+      return self.monthly_budget - spent
+
+  def is_over_budget(self, transaction_manager):
+      return self.remaining_budget(transaction_manager) < 0
+
+  def budget_status(self, transaction_manager):
+      remaining = self.remaining_budget(transaction_manager)
+
+      if remaining < 0:
+          return f" You are over budget by {abs(remaining)}"
+      elif remaining < self.monthly_budget * 0.2:
+          return f" Warning: Only {remaining} left in your budget"
+      else:
+          return f" You have {remaining} remaining"
 
 class ReportGenerator:
-  pass
+    def __init__(self, transaction_manager):
+        self.manager = transaction_manager
+
+    def summary_report(self):
+        incomes = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
+        expenses = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
+        recurring = [t.Amount for t in self.manager.transactions if isinstance(t, RecurringBill)]
+
+        return {
+            "Total Income": sum(incomes),
+            "Total Expenses": sum(expenses),
+            "Total Recurring Bills": sum(recurring),
+            "Net Balance": sum(incomes) - (sum(expenses) + sum(recurring))
+        }
+
+    def category_breakdown(self):
+        breakdown = {}
+        for t in self.manager.transactions:
+            if isinstance(t, Expense):
+                breakdown.setdefault(t.Category, 0)
+                breakdown[t.Category] += t.Amount
+        return breakdown
+
+    def export_to_json(self, filename="transactions_export"):
+        data = [
+            t.to_database() if hasattr(t, "to_database") else t.__dict__
+            for t in self.manager.transactions
+        ]
+
+        with open(f"{filename}.json", "w") as f:
+            json.dump(data, f, indent=4)
+
+        return f"{filename} saved successfully"
 
 if __name__ == "__main__":
   manager = TransactionManager()
