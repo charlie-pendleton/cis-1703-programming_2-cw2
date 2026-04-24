@@ -1,3 +1,4 @@
+
 import json
 import datetime
 
@@ -236,6 +237,7 @@ if __name__ == "__main__":
     # Handles invalid transaction 
     else:
       print("worng input")
+      continue
 
     # Adds the created transaction object to the manager.
     manager.add_transaction(T)
