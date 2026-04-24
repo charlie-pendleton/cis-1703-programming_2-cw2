@@ -1,0 +1,11 @@
+[
+    {
+        "ID": "1",
+        "Date": "2025-01-01",
+        "Amount": "1000",
+        "Description": "christmas  money",
+        "Type": "Income",
+        "Source": "friends",
+        "IsTaxable": "F"
+    }
+]
