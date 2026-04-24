@@ -1,4 +1,3 @@
-
 import json
 import datetime
 
@@ -69,6 +68,14 @@ def is_valid_bool(boolean):
     return True
   else:
     return False
+
+# ensures importance level i snot going higher then 10 
+def valid_importance_level(level_str):
+    try:
+        level = int(level_str)
+        return 1 <= level <= 10
+    except ValueError:
+        return False
 
 #super class of transaction
 class Transaction:
@@ -168,7 +175,7 @@ class TransactionManager:
             Income(
               item["ID"],
               item["Date"],
-              item["Amount"],
+              float(item["Amount"]),
               item["Description"],
               item["Source"],
               item["IsTaxable"]
@@ -181,7 +188,7 @@ class TransactionManager:
               Expense(
                   item["ID"],
                   item["Date"],
-                  item["Amount"],
+                  float(item["Amount"]),
                   item["Description"],
                   item["Category"],
                   item["ImportanceLevel"]
@@ -193,7 +200,7 @@ class TransactionManager:
               RecurringBill(
                   item["ID"],
                   item["Date"],
-                  item["Amount"],
+                  float(item["Amount"]),
                   item["Description"],
                   item["Frequency"],
                   item["NextDueDate"]
@@ -214,18 +221,19 @@ class TransactionManager:
   #adds transactions to database  
   def add_transaction(self, transaction):
     self.transactions.append(transaction)
-    self.save_transactions("transactions")
+    self.save_transactions(self.filename)
     print("transaction added successfully")
 
   #prints database, may only need 218 - 221, if someone wants to test then you can
   def view_transactions(self, filename):
     try:
         with open(f"{filename}.json", "r") as f:
-            print(json.load(f))
-            return json.load(f)
+            data=json.load(f)
+        print(data)
+        return (data)
     except FileNotFoundError:
         print("file doesnt exist already, creating database now")
-        self.save_transactions(self, filename)
+        self.save_transactions( filename)
     except json.JSONDecodeError:
         print("save file is corrupted! Starting fresh")
         self.save_transactions(filename)
@@ -356,14 +364,30 @@ if __name__ == "__main__":
       if 0 <= choice <6:
         if choice == 0:
           print("closing program")
+          break
         elif choice == 1:
           #need to check if id exists inside of the database already
           while user_error == 0:
-            ID = check_input_is_valid("Enter the ID of the transaction: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")  
-            Date = check_input_is_valid("Enter the date of the expense: ", is_valid_date, "Enter date in format yyyy-mm-dd")
+            #loop to prevent duplicat IDs
+            while True:
+              ID = check_input_is_valid("Enter the ID of the transaction: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")  
+              ID=ID.strip()
+              #assumes that its the only one with that ID
+              exists=False
+              #checck all the transations for that ID
+              for t in  manager.transactions:
+                 #uses boolen,if it is a duplicate tthen exists becomes true 
+                 if t.ID==ID:
+                    exists= True
+              if not exists:
+                 break
+              else:
+                 print("This Id already exists ")
+            Date = check_input_is_valid("Enter the date of the expense(yyyy-mm-dd): ", is_valid_date, "Enter date in format yyyy-mm-dd")
             Amount = check_input_is_valid("Insert the amount: ", is_valid_amount, "Enter a float above 0")
+            Amount=float(Amount)
             Description = input("Enter Description: ")
-            type = check_input_is_valid("enter the type of transaction: ", is_valid_type, "Enter a valid type of transaction")
+            type = check_input_is_valid("enter the type of transaction,these are Income, Expense, RecurringBill: ", is_valid_type, "Enter a valid type of transaction")
             
             if type == "Income":
               Source = input("Enter the Source: ")
@@ -373,12 +397,12 @@ if __name__ == "__main__":
               
             elif type == "Expense":
               Category = input("Enter the Category of expense: ")
-              ImportanceLevel = check_input_is_valid("Enter Importance Level 1-10: ", is_valid_integer, "Enter an integer 0-10")
+              ImportanceLevel = check_input_is_valid("Enter Importance Level 1-10: ", valid_importance_level, "Enter a valid integer 1-10 ")
               T = Expense(ID, Date, Amount, Description, Category, ImportanceLevel)
               
-            elif type == "Recurringbill":
+            elif type == "RecurringBill":
               Frequency = check_input_is_valid("Enter the Frequency of expense: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")
-              NextDueDate = check_input_is_valid("When is the next due date: ", is_valid_date, "Enter date in format yyyy-mm-dd")
+              NextDueDate = check_input_is_valid("When is the next due date in the (format yyyy-mm-dd): ", is_valid_date, "Enter date in format yyyy-mm-dd")
               T = RecurringBill(ID, Date, Amount, Description, Frequency, NextDueDate)
             else:
               print("wrong input")
@@ -389,11 +413,50 @@ if __name__ == "__main__":
         elif choice == 2:
           manager.view_transactions("transactions")
         elif choice == 3:
-          pass
+          forecast=ForecastService(manager)
+          #call the alll the forcat methods from the class 
+          average_expense=forecast.forecast_monthly_expenses()
+          average_income=forecast.forecast_income_amount()
+          recurring_bills=forecast.forecast_recurring_bills()
+          #this will print the visual message 
+          print("The average monly expense is ",average_expense)
+          print("the average income ",average_income)
+          print("The recurring bill amount is ",recurring_bills)
         elif choice == 4:
-          pass
+          monthly_budget = check_input_is_valid(
+              "Enter your monthly budget: ",
+              is_valid_amount,
+              "Enter a number above 0"
+          )
+          monthly_budget = float(monthly_budget)
+          budget = BudgetManager(monthly_budget)
+          total = budget.calculate_total_expenses(manager)
+          remaining = budget.remaining_budget(manager)
+          status = budget.budget_status(manager)
+          print("Total expenses:", total)
+          print("Remaining budget:", remaining)
+          print(status)
         elif choice == 5:
-          pass
+          report = ReportGenerator(manager)
+
+          summary = report.summary_report()
+          breakdown = report.category_breakdown()
+          export_message = report.export_to_json()
+
+          print("Summary Report:")
+          # loops thorugh the summary dictionary
+          for key, value in summary.items():
+              print(key, ":", value)
+          #prints heading and creates a new line 
+          print("\nCategory Breakdown:")
+          if breakdown:
+              #loop through categories 
+              for category, amount in breakdown.items():
+                  print(category, ":", round(amount, 2))
+          else:
+              print("No expenses found")
+
+          print(export_message)
         else:
           print("Number is out of range, Enter a number between 0 and 5")
     except ValueError:
