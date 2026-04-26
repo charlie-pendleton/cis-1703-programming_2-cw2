@@ -358,6 +358,8 @@ class App(tk.Tk):
         self.add_button.pack(pady=10)
         self.view_button = tk.Button(self, text="View Transactions", command=self.view_transactions)
         self.view_button.pack(pady=10)
+        self.report_button = tk.Button(self, text="Generate Report", command=self.report_generator)
+        self.report_button.pack(pady=10)
     def add_transaction(self):
        new_window = tk.Toplevel(self)
        new_window.title("Add Transaction")
@@ -440,7 +442,26 @@ class App(tk.Tk):
         text.pack()
         for t in transactions:
             text.insert(tk.END, f"{t}\n")
-
+    def report_generator(self):
+        report = ReportGenerator(self.transaction_manager)
+        summary = report.summary_report()
+        breakdown = report.category_breakdown()
+        export_message = report.export_to_json()
+        report_window = tk.Toplevel(self)
+        report_window.title("Report")
+        report_window.geometry("400x300")
+        text = tk.Text(report_window)
+        text.pack()
+        text.insert(tk.END, "Summary Report:\n")
+        for key, value in summary.items():
+            text.insert(tk.END, f"{key}: {value}\n")
+        text.insert(tk.END, "\nCategory Breakdown:\n")
+        if breakdown:
+            for category, amount in breakdown.items():
+                text.insert(tk.END, f"{category}: {round(amount, 2)}\n")
+        else:
+            text.insert(tk.END, "No expenses found\n")
+        text.insert(tk.END, f"\n{export_message}\n")
 
 if __name__ == "__main__":
   gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
