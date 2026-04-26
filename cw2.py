@@ -1,6 +1,7 @@
 import json
 import datetime
-
+import tkinter as tk
+from tkinter import messagebox
 #add all user inputs to a list, they dont need uniform attributes meaning expenses and incomes can have differnt end attributes.
 #filter by the attributes youy want
 #when making table get the type of transaction, then filter by just that so then its organised
@@ -345,119 +346,218 @@ class ReportGenerator:
 
       except Exception as error:
           return f"Export failed: {error}"
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Transaction Manager")
+        self.geometry("400x300")
+        self.transaction_manager = TransactionManager()
+        self.create_widgets()
+    def create_widgets(self):
+        self.add_button = tk.Button(self, text="Add Transaction", command=self.add_transaction)
+        self.add_button.pack(pady=10)
+        self.view_button = tk.Button(self, text="View Transactions", command=self.view_transactions)
+        self.view_button.pack(pady=10)
+    def add_transaction(self):
+       new_window = tk.Toplevel(self)
+       new_window.title("Add Transaction")
+       new_window.geometry("300x400")
+       tk.Label(new_window, text="ID:").pack()
+       id_entry = tk.Entry(new_window)
+       id_entry.pack()
+       tk.Label(new_window, text="Date (yyyy-mm-dd):").pack()
+       date_entry = tk.Entry(new_window)
+       date_entry.pack()
+       tk.Label(new_window, text="Amount:").pack()
+       amount_entry = tk.Entry(new_window)
+       amount_entry.pack()
+       tk.Label(new_window, text="Description:").pack()
+       description_entry = tk.Entry(new_window)
+       description_entry.pack()
+       tk.Label(new_window, text="Type (Income, Expense, RecurringBill):").pack()
+       type_entry = tk.Entry(new_window)
+       type_entry.pack()
+       tk.Button(new_window, text="Submit", command=lambda: self.submit_transaction(id_entry.get(), date_entry.get(), amount_entry.get(), description_entry.get(), type_entry.get())).pack(pady=10)
+    def submit_transaction(self, id, date, amount, description, type):
+        if not is_valid_integer(id):
+            messagebox.showerror("Error", "ID must be an integer above 0")
+            return
+        if not is_valid_date(date):
+            messagebox.showerror("Error", "Date must be in format yyyy-mm-dd")
+            return
+        if not is_valid_amount(amount):
+            messagebox.showerror("Error", "Amount must be a number above 0")
+            return
+        if not is_valid_type(type):
+            messagebox.showerror("Error", "Type must be Income, Expense, or RecurringBill")
+            return
+        transaction = None
+        if type == "Income":
+            transaction = Income(id, date, float(amount), description, "Source", "T")
+        elif type == "Expense":
+            transaction = Expense(id, date, float(amount), description, "Category", 1)
+        elif type == "RecurringBill":
+          new_window = tk.Toplevel(self)
+          new_window.title("Recurring Bill Details")
+          new_window.geometry("300x200")
+          tk.Label(new_window, text="Frequency:").pack()
+          frequency_entry = tk.Entry(new_window)
+          frequency_entry.pack()
+          tk.Label(new_window, text="Next Due Date (yyyy-mm-dd):").pack()
+          next_due_date_entry = tk.Entry(new_window)
+          next_due_date_entry.pack()
+          submit_recurring_bill = lambda: self.submit_recurring_bill(id, date, amount, description, frequency_entry.get(), next_due_date_entry.get(), new_window)
+          tk.Button(new_window, text="Submit", command=submit_recurring_bill).pack(pady=10)
+          return
+        # only add & show success for transactions created synchronously
+        if transaction is not None:
+            self.transaction_manager.add_transaction(transaction)
+            messagebox.showinfo("Success", "Transaction added successfully")
+
+    def submit_recurring_bill(self, id, date, amount, description, frequency_str, next_due_date_str, window):
+        if not is_valid_integer(frequency_str):
+            messagebox.showerror("Error", "Frequency must be an integer above 0")
+            return
+        if not is_valid_date(next_due_date_str):
+            messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
+            return
+        try:
+            freq = int(frequency_str)
+            amt = float(amount)
+        except ValueError:
+            messagebox.showerror("Error", "Frequency must be an integer and Amount a number")
+            return
+        transaction = RecurringBill(id, date, amt, description, freq, next_due_date_str)
+        self.transaction_manager.add_transaction(transaction)
+        window.destroy()
+        messagebox.showinfo("Success", "Recurring bill added successfully")
+    def view_transactions(self):
+        transactions = self.transaction_manager.view_transactions("transactions")
+        view_window = tk.Toplevel(self)
+        view_window.title("View Transactions")
+        view_window.geometry("400x300")
+        text = tk.Text(view_window)
+        text.pack()
+        for t in transactions:
+            text.insert(tk.END, f"{t}\n")
 
 
 if __name__ == "__main__":
-  manager = TransactionManager()
-  user_error = 0
-  while True:
-    print("Welcome to the transaction manager")
-    print("Enter 1 to add to the database")
-    print("Enter 2 to view the database")
-    print("Enter 3 to use the forcast service")
-    print("Enter 4 to set a budget")
-    print("Enter 5 for a report")
-    print("Enter 0 to exit the program")
-    try:
-      choice = int(input("Enter your choice: "))
+  gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
+  if gui_cli == "2":
+      app = App()
+      app.mainloop()    
+  else:
+     manager = TransactionManager()
+     user_error = 0
+     while True:
+        print("Welcome to the transaction manager")
+        print("Enter 1 to add to the database")
+        print("Enter 2 to view the database")
+        print("Enter 3 to use the forcast service")
+        print("Enter 4 to set a budget")
+        print("Enter 5 for a report")
+        print("Enter 0 to exit the program")
+        try:
+           choice = int(input("Enter your choice: "))
       
-      if 0 <= choice <6:
-        if choice == 0:
-          print("closing program")
-          break
-        elif choice == 1:
-          #need to check if id exists inside of the database already
-          while user_error == 0:
-            #loop to prevent duplicat IDs
-            while True:
-              ID = check_input_is_valid("Enter the ID of the transaction: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")  
-              ID=ID.strip()
-              #assumes that its the only one with that ID
-              exists=False
-              #checck all the transations for that ID
-              for t in  manager.transactions:
-                 #uses boolen,if it is a duplicate tthen exists becomes true 
-                 if t.ID==ID:
-                    exists= True
-              if not exists:
-                 break
-              else:
-                 print("This Id already exists ")
-            Date = check_input_is_valid("Enter the date of the expense(yyyy-mm-dd): ", is_valid_date, "Enter date in format yyyy-mm-dd")
-            Amount = check_input_is_valid("Insert the amount: ", is_valid_amount, "Enter a float above 0")
-            Amount=float(Amount)
-            Description = input("Enter Description: ")
-            type = check_input_is_valid("enter the type of transaction,these are Income, Expense, RecurringBill: ", is_valid_type, "Enter a valid type of transaction")
-            
-            if type == "Income":
-              Source = input("Enter the Source: ")
-              isTaxable = check_input_is_valid("is it taxable T or F: ", is_valid_bool, "Enter T or F")
-              
-              T = Income(ID, Date, Amount, Description, Source, isTaxable)
-              
-            elif type == "Expense":
-              Category = input("Enter the Category of expense: ")
-              ImportanceLevel = check_input_is_valid("Enter Importance Level 1-10: ", valid_importance_level, "Enter a valid integer 1-10 ")
-              T = Expense(ID, Date, Amount, Description, Category, ImportanceLevel)
-              
-            elif type == "RecurringBill":
-              Frequency = check_input_is_valid("Enter the Frequency of expense: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")
-              NextDueDate = check_input_is_valid("When is the next due date in the (format yyyy-mm-dd): ", is_valid_date, "Enter date in format yyyy-mm-dd")
-              T = RecurringBill(ID, Date, Amount, Description, Frequency, NextDueDate)
-            else:
-              print("wrong input")
-              
-            manager.add_transaction(T)
-            break
-          
-        elif choice == 2:
-          manager.view_transactions("transactions")
-        elif choice == 3:
-          forecast=ForecastService(manager)
-          #call the alll the forcat methods from the class 
-          average_expense=forecast.forecast_monthly_expenses()
-          average_income=forecast.forecast_income_amount()
-          recurring_bills=forecast.forecast_recurring_bills()
-          #this will print the visual message 
-          print("The average monly expense is ",average_expense)
-          print("the average income ",average_income)
-          print("The recurring bill amount is ",recurring_bills)
-        elif choice == 4:
-          monthly_budget = check_input_is_valid(
-              "Enter your monthly budget: ",
-              is_valid_amount,
-              "Enter a number above 0"
-          )
-          monthly_budget = float(monthly_budget)
-          budget = BudgetManager(monthly_budget)
-          total = budget.calculate_total_expenses(manager)
-          remaining = budget.remaining_budget(manager)
-          status = budget.budget_status(manager)
-          print("Total expenses:", total)
-          print("Remaining budget:", remaining)
-          print(status)
-        elif choice == 5:
-          report = ReportGenerator(manager)
+           if 0 <= choice <6:
+            if choice == 0:
+             print("closing program")
+             break
+           elif choice == 1:
+             #need to check if id exists inside of the database already
+             while user_error == 0:
+               #loop to prevent duplicat IDs
+               while True:
+                 ID = check_input_is_valid("Enter the ID of the transaction: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")  
+                 ID=ID.strip()
+                 #assumes that its the only one with that ID
+                 exists=False
+                 #checck all the transations for that ID
+                 for t in  manager.transactions:
+                    #uses boolen,if it is a duplicate tthen exists becomes true 
+                    if t.ID==ID:
+                       exists= True
+                 if not exists:
+                    break
+                 else:
+                    print("This Id already exists ")
+               Date = check_input_is_valid("Enter the date of the expense(yyyy-mm-dd): ", is_valid_date, "Enter date in format yyyy-mm-dd")
+               Amount = check_input_is_valid("Insert the amount: ", is_valid_amount, "Enter a float above 0")
+               Amount=float(Amount)
+               Description = input("Enter Description: ")
+               type = check_input_is_valid("enter the type of transaction,these are Income, Expense, RecurringBill: ", is_valid_type, "Enter a valid type of transaction")
+               
+               if type == "Income":
+                 Source = input("Enter the Source: ")
+                 isTaxable = check_input_is_valid("is it taxable T or F: ", is_valid_bool, "Enter T or F")
+                 
+                 T = Income(ID, Date, Amount, Description, Source, isTaxable)
+                 
+               elif type == "Expense":
+                 Category = input("Enter the Category of expense: ")
+                 ImportanceLevel = check_input_is_valid("Enter Importance Level 1-10: ", valid_importance_level, "Enter a valid integer 1-10 ")
+                 T = Expense(ID, Date, Amount, Description, Category, ImportanceLevel)
+                 
+               elif type == "RecurringBill":
+                 Frequency = check_input_is_valid("Enter the Frequency of expense: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")
+                 NextDueDate = check_input_is_valid("When is the next due date in the (format yyyy-mm-dd): ", is_valid_date, "Enter date in format yyyy-mm-dd")
+                 T = RecurringBill(ID, Date, Amount, Description, Frequency, NextDueDate)
+               else:
+                 print("wrong input")
+                 
+               manager.add_transaction(T)
+               break
+             
+           elif choice == 2:
+             manager.view_transactions("transactions")
+           elif choice == 3:
+             forecast=ForecastService(manager)
+             #call the alll the forcat methods from the class 
+             average_expense=forecast.forecast_monthly_expenses()
+             average_income=forecast.forecast_income_amount()
+             recurring_bills=forecast.forecast_recurring_bills()
+             #this will print the visual message 
+             print("The average monly expense is ",average_expense)
+             print("the average income ",average_income)
+             print("The recurring bill amount is ",recurring_bills)
+           elif choice == 4:
+             monthly_budget = check_input_is_valid(
+                 "Enter your monthly budget: ",
+                 is_valid_amount,
+                 "Enter a number above 0"
+             )
+             monthly_budget = float(monthly_budget)
+             budget = BudgetManager(monthly_budget)
+             total = budget.calculate_total_expenses(manager)
+             remaining = budget.remaining_budget(manager)
+             status = budget.budget_status(manager)
+             print("Total expenses:", total)
+             print("Remaining budget:", remaining)
+             print(status)
+           elif choice == 5:
+             report = ReportGenerator(manager)
 
-          summary = report.summary_report()
-          breakdown = report.category_breakdown()
-          export_message = report.export_to_json()
+             summary = report.summary_report()
+             breakdown = report.category_breakdown()
+             export_message = report.export_to_json()
 
-          print("Summary Report:")
-          # loops thorugh the summary dictionary
-          for key, value in summary.items():
-              print(key, ":", value)
-          #prints heading and creates a new line 
-          print("\nCategory Breakdown:")
-          if breakdown:
-              #loop through categories 
-              for category, amount in breakdown.items():
-                  print(category, ":", round(amount, 2))
-          else:
-              print("No expenses found")
+             print("Summary Report:")
+             # loops thorugh the summary dictionary
+             for key, value in summary.items():
+                 print(key, ":", value)
+             #prints heading and creates a new line 
+             print("\nCategory Breakdown:")
+             if breakdown:
+                 #loop through categories 
+                 for category, amount in breakdown.items():
+                     print(category, ":", round(amount, 2))
+             else:
+                 print("No expenses found")
 
-          print(export_message)
-        else:
-          print("Number is out of range, Enter a number between 0 and 5")
-    except ValueError:
-      print("please enter an integer between 0 and 5")
+             print(export_message)
+           else:
+             print("Number is out of range, Enter a number between 0 and 5")
+        except ValueError:
+            print("please enter an integer between 0 and 5")
