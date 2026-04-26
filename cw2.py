@@ -244,70 +244,24 @@ class ForecastService:
   def __init__(self, transaction_manager):
       # Uses the same TransactionManager object so it can access stored transactions.
       self.manager = transaction_manager
-      self.transactionsexpense = []
-      self.transactionsincome = []
-      self.transactionsrecurring = []
-      self.transactionsrecurring30day = []
-      self.transactionsrecurringamount = []
 
-      self.total_balance = float(0)
-      self.total_income = float(0)
-      self.total_expense = float(0)
-      self.total_recurring = float(0)
-      self.total_balance_after = float(0)
+  # Calculates the average expense amount.
+  def forecast_monthly_expenses(self):
+      expenses = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
+      if not expenses:
+          return 0
+      return sum(expenses) / len(expenses)
 
-      self.current_date = datetime.now()
-      self.future_date = self.current_date + timedelta(days=30)
+  # Calculates the average income amount and rounds it to 4 decimal places.
+  def forecast_income_amount(self):
+      incomes = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
+      if not incomes:
+          return 0
+      return round(sum(incomes) / len(incomes), 2)
 
   # Returns all recurring bills stored in the transaction list.
   def forecast_recurring_bills(self):
-      self.transactionsrecurring = [t for t in self.manager.transactions if isinstance(t, RecurringBill)]
-      return self.transactionsrecurring
-  # Returns total amount of recuring bills due in 30 days
-  def forecast_recurring_bills_30days(self):
-      self.transactionsrecurring = self.forecast_recurring_bills()
-      for bill in self.transactionsrecurring:
-        # convert NextDueDate to datetime
-        try:
-          due_date = datetime.strptime(bill.NextDueDate, "%Y-%m-%d")
-        except ValueError:
-          continue
-
-        #Checks if its within the next 30 days
-        if self.current_date <= due_date <= self.future_date:
-          self.transactionsrecurring30day.append(bill)
-
-      self.transactionsrecurringamount = [t.Amount for t in self.transactionsrecurring30day]
-      return self.transactionsrecurringamount
-  
-  # Returns a total amount for recurring bills
-  def forecast_recurring_amount(self):
-      self.transactionsrecurringamount = self.forecast_recurring_bills_30days()
-      print(self.transactionsrecurringamount)
-      self.total_recurring = sum(float(x) for x in self.transactionsrecurringamount)
-      return self.total_recurring
-  
-  # Calculates the expense amount.
-  def forecast_monthly_expenses(self):
-      self.transactionsexpense = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
-      self.total_expense = sum(float(x) for x in self.transactionsexpense)
-      return self.total_expense
-
-  # Calculates the income amount
-  def forecast_income_amount(self):
-      self.transactionsincome = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
-      self.total_income = sum(float(x) for x in self.transactionsincome)
-      return self.total_income
-  
-  # Calculates the total balance
-  def forecast_balance(self):
-      self.total_balance = float(self.total_income - self.total_expense)
-      return self.total_balance
-  
-  # Calculates balance after recurring bills are taken off
-  def forecast_balance_recurring(self):
-     self.total_balance_after = float(self.total_balance - self.total_recurring)
-     return self.total_balance_after
+      return [t for t in self.manager.transactions if isinstance(t, RecurringBill)]
 
 
 #  Budget calculations.
@@ -396,18 +350,29 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Transaction Manager")
-        self.geometry("400x300")
+        self.geometry("400x500")
         self.transaction_manager = TransactionManager()
         self.create_widgets()
+        #stores the budget
+        self.budget = None  
+   #function that creates the button layout 
     def create_widgets(self):
+        #add button 
         self.add_button = tk.Button(self, text="Add Transaction", command=self.add_transaction)
         self.add_button.pack(pady=10)
+        #veiw button
         self.view_button = tk.Button(self, text="View Transactions", command=self.view_transactions)
         self.view_button.pack(pady=10)
+        #the generate report button 
         self.report_button = tk.Button(self, text="Generate Report", command=self.report_generator)
         self.report_button.pack(pady=10)
+        #budget manager buttons  
+        self.budget_man_btn = tk.Button(self, text="Budget Manager", command=self.budget_manager)
+        self.budget_man_btn.pack(pady=10)
+        #forecast manager buttons
         self.forecast_button = tk.Button(self, text="Generate Forecast", command=self.forecast_generator)
         self.forecast_button.pack(pady=10)
+    #for the add transaction window 
     def add_transaction(self):
        new_window = tk.Toplevel(self)
        new_window.title("Add Transaction")
@@ -428,6 +393,7 @@ class App(tk.Tk):
        type_entry = tk.Entry(new_window)
        type_entry.pack()
        tk.Button(new_window, text="Submit", command=lambda: self.submit_transaction(id_entry.get(), date_entry.get(), amount_entry.get(), description_entry.get(), type_entry.get())).pack(pady=10)
+    
     def submit_transaction(self, id, date, amount, description, type):
         if not is_valid_integer(id):
             messagebox.showerror("Error", "ID must be an integer above 0")
@@ -490,6 +456,7 @@ class App(tk.Tk):
         text.pack()
         for t in transactions:
             text.insert(tk.END, f"{t}\n")
+    #Report generator screen 
     def report_generator(self):
         report = ReportGenerator(self.transaction_manager)
         summary = report.summary_report()
@@ -529,8 +496,41 @@ class App(tk.Tk):
         text.insert(tk.END, f"Current Balance: £{total_balance}\n")
         text.insert(tk.END, f"Amount of recurring bills due in 30 days: £{recurring_bills}\n")
         text.insert(tk.END, f"Balance after recurring bills: £{total_balance_after}\n")
-
-
+    #opens window when budgetmanager button is pressed 
+    def budget_manager(self):
+        bud_window = tk.Toplevel(self)
+        bud_window.title("Budget Manager")
+        bud_window.geometry("300x200")
+        #text to prompt the user to enter the budget 
+        tk.Label(bud_window, text="Enter the monthy budget:").pack()
+        #entry box
+        bud_entry = tk.Entry(bud_window)
+        bud_entry.pack()
+        #button to calculate budget
+        tk.Button( bud_window,text="Calculate",command=lambda: self.cal_bud(bud_entry.get())).pack(pady=10)
+        #check budget to see if it is a valid amount using validation function
+    def cal_bud(self, monthly_budget):
+        #validation to ensure input is correct
+        if not is_valid_amount(monthly_budget):
+            messagebox.showerror("Error", "Enter a valid number above 0 for the budget")
+            return
+        #checks if there are no transactions to prevent errors
+        if not self.transaction_manager.transactions:
+            messagebox.showinfo("Info", "No transactions found")
+            return
+        monthly_budget = float(monthly_budget)
+    #stores the budget so it can be reused 
+        self.budget = BudgetManager(monthly_budget)
+        #calculates values using budget manager 
+        total = self.budget.calculate_total_expenses(self.transaction_manager)
+        remaining = self.budget.remaining_budget(self.transaction_manager)
+        status = self.budget.budget_status(self.transaction_manager)
+        #calculates percentage of budget used
+        percentage = (total / monthly_budget) * 100
+        #displays the results to the user
+        messagebox.showinfo(
+            "Budget avaliable", f"Total expenses:{total}\nRemaing budget:{remaining}\nUsed:{percentage:.2f}%\n{status}" )
+          
 if __name__ == "__main__":
   gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
   if gui_cli == "2":
