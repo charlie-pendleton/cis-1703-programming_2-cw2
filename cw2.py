@@ -1,7 +1,7 @@
 import json
-import datetime
 import tkinter as tk
 from tkinter import messagebox
+from datetime import datetime,timedelta
 #add all user inputs to a list, they dont need uniform attributes meaning expenses and incomes can have differnt end attributes.
 #filter by the attributes youy want
 #when making table get the type of transaction, then filter by just that so then its organised
@@ -369,6 +369,9 @@ class App(tk.Tk):
         #budget manager buttons  
         self.budget_man_btn = tk.Button(self, text="Budget Manager", command=self.budget_manager)
         self.budget_man_btn.pack(pady=10)
+        #forecast manager buttons
+        self.forecast_button = tk.Button(self, text="Generate Forecast", command=self.forecast_generator)
+        self.forecast_button.pack(pady=10)
     #for the add transaction window 
     def add_transaction(self):
        new_window = tk.Toplevel(self)
@@ -474,6 +477,25 @@ class App(tk.Tk):
         else:
             text.insert(tk.END, "No expenses found\n")
         text.insert(tk.END, f"\n{export_message}\n")
+    def forecast_generator(self):
+        forecast=ForecastService(self.transaction_manager)
+        total_expense=forecast.forecast_monthly_expenses()
+        total_income=forecast.forecast_income_amount()
+        recurring_bills=forecast.forecast_recurring_amount()
+        total_balance=forecast.forecast_balance()
+        total_balance_after=forecast.forecast_balance_recurring()
+        Forecast_window = tk.Toplevel(self)
+        Forecast_window.title("Forecast")
+        Forecast_window.geometry("400x300")
+        text = tk.Text(Forecast_window)
+        text.pack()
+        text.insert(tk.END, "Forecasted Report:\n")
+        text.insert(tk.END, "\n")
+        text.insert(tk.END, f"Average Monthly expense: £{total_expense}\n")
+        text.insert(tk.END, f"Average Income: £{total_income}\n")
+        text.insert(tk.END, f"Current Balance: £{total_balance}\n")
+        text.insert(tk.END, f"Amount of recurring bills due in 30 days: £{recurring_bills}\n")
+        text.insert(tk.END, f"Balance after recurring bills: £{total_balance_after}\n")
     #opens window when budgetmanager button is pressed 
     def budget_manager(self):
         bud_window = tk.Toplevel(self)
@@ -582,13 +604,15 @@ if __name__ == "__main__":
            elif choice == 3:
              forecast=ForecastService(manager)
              #call the alll the forcat methods from the class 
-             average_expense=forecast.forecast_monthly_expenses()
-             average_income=forecast.forecast_income_amount()
-             recurring_bills=forecast.forecast_recurring_bills()
+             total_expense=forecast.forecast_monthly_expenses()
+             total_income=forecast.forecast_income_amount()
+             recurring_bills=forecast.forecast_recurring_amount()
+             total_balance=forecast.forecast_balance()
              #this will print the visual message 
-             print("The average monly expense is ",average_expense)
-             print("the average income ",average_income)
-             print("The recurring bill amount is ",recurring_bills)
+             print(f"The average monly expense is £{total_expense}.")
+             print(f"the average income {total_income}.")
+             print(f"The current amount balance is £{total_balance}.")
+             print(f"The recurring bill amount due within 30 days  is £{recurring_bills}")
            elif choice == 4:
              monthly_budget = check_input_is_valid(
                  "Enter your monthly budget: ",
