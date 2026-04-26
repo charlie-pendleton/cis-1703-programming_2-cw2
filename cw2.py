@@ -244,24 +244,70 @@ class ForecastService:
   def __init__(self, transaction_manager):
       # Uses the same TransactionManager object so it can access stored transactions.
       self.manager = transaction_manager
+      self.transactionsexpense = []
+      self.transactionsincome = []
+      self.transactionsrecurring = []
+      self.transactionsrecurring30day = []
+      self.transactionsrecurringamount = []
 
-  # Calculates the average expense amount.
-  def forecast_monthly_expenses(self):
-      expenses = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
-      if not expenses:
-          return 0
-      return sum(expenses) / len(expenses)
+      self.total_balance = float(0)
+      self.total_income = float(0)
+      self.total_expense = float(0)
+      self.total_recurring = float(0)
+      self.total_balance_after = float(0)
 
-  # Calculates the average income amount and rounds it to 4 decimal places.
-  def forecast_income_amount(self):
-      incomes = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
-      if not incomes:
-          return 0
-      return round(sum(incomes) / len(incomes), 2)
+      self.current_date = datetime.now()
+      self.future_date = self.current_date + timedelta(days=30)
 
   # Returns all recurring bills stored in the transaction list.
   def forecast_recurring_bills(self):
-      return [t for t in self.manager.transactions if isinstance(t, RecurringBill)]
+      self.transactionsrecurring = [t for t in self.manager.transactions if isinstance(t, RecurringBill)]
+      return self.transactionsrecurring
+  # Returns total amount of recuring bills due in 30 days
+  def forecast_recurring_bills_30days(self):
+      self.transactionsrecurring = self.forecast_recurring_bills()
+      for bill in self.transactionsrecurring:
+        # convert NextDueDate to datetime
+        try:
+          due_date = datetime.strptime(bill.NextDueDate, "%Y-%m-%d")
+        except ValueError:
+          continue
+
+        #Checks if its within the next 30 days
+        if self.current_date <= due_date <= self.future_date:
+          self.transactionsrecurring30day.append(bill)
+
+      self.transactionsrecurringamount = [t.Amount for t in self.transactionsrecurring30day]
+      return self.transactionsrecurringamount
+  
+  # Returns a total amount for recurring bills
+  def forecast_recurring_amount(self):
+      self.transactionsrecurringamount = self.forecast_recurring_bills_30days()
+      print(self.transactionsrecurringamount)
+      self.total_recurring = sum(float(x) for x in self.transactionsrecurringamount)
+      return self.total_recurring
+  
+  # Calculates the expense amount.
+  def forecast_monthly_expenses(self):
+      self.transactionsexpense = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
+      self.total_expense = sum(float(x) for x in self.transactionsexpense)
+      return self.total_expense
+
+  # Calculates the income amount
+  def forecast_income_amount(self):
+      self.transactionsincome = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
+      self.total_income = sum(float(x) for x in self.transactionsincome)
+      return self.total_income
+  
+  # Calculates the total balance
+  def forecast_balance(self):
+      self.total_balance = float(self.total_income - self.total_expense)
+      return self.total_balance
+  
+  # Calculates balance after recurring bills are taken off
+  def forecast_balance_recurring(self):
+     self.total_balance_after = float(self.total_balance - self.total_recurring)
+     return self.total_balance_after
 
 
 #  Budget calculations.
