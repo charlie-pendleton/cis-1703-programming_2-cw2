@@ -350,16 +350,26 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Transaction Manager")
-        self.geometry("400x300")
+        self.geometry("400x500")
         self.transaction_manager = TransactionManager()
         self.create_widgets()
+        #stores the budget
+        self.budget = None  
+   #function that creates the button layout 
     def create_widgets(self):
+        #add button 
         self.add_button = tk.Button(self, text="Add Transaction", command=self.add_transaction)
         self.add_button.pack(pady=10)
+        #veiw button
         self.view_button = tk.Button(self, text="View Transactions", command=self.view_transactions)
         self.view_button.pack(pady=10)
+        #the generate report button 
         self.report_button = tk.Button(self, text="Generate Report", command=self.report_generator)
         self.report_button.pack(pady=10)
+        #budget manager buttons  
+        self.budget_man_btn = tk.Button(self, text="Budget Manager", command=self.budget_manager)
+        self.budget_man_btn.pack(pady=10)
+    #for the add transaction window 
     def add_transaction(self):
        new_window = tk.Toplevel(self)
        new_window.title("Add Transaction")
@@ -380,6 +390,7 @@ class App(tk.Tk):
        type_entry = tk.Entry(new_window)
        type_entry.pack()
        tk.Button(new_window, text="Submit", command=lambda: self.submit_transaction(id_entry.get(), date_entry.get(), amount_entry.get(), description_entry.get(), type_entry.get())).pack(pady=10)
+    
     def submit_transaction(self, id, date, amount, description, type):
         if not is_valid_integer(id):
             messagebox.showerror("Error", "ID must be an integer above 0")
@@ -442,6 +453,7 @@ class App(tk.Tk):
         text.pack()
         for t in transactions:
             text.insert(tk.END, f"{t}\n")
+    #Report generator screen 
     def report_generator(self):
         report = ReportGenerator(self.transaction_manager)
         summary = report.summary_report()
@@ -462,7 +474,41 @@ class App(tk.Tk):
         else:
             text.insert(tk.END, "No expenses found\n")
         text.insert(tk.END, f"\n{export_message}\n")
-
+    #opens window when budgetmanager button is pressed 
+    def budget_manager(self):
+        bud_window = tk.Toplevel(self)
+        bud_window.title("Budget Manager")
+        bud_window.geometry("300x200")
+        #text to prompt the user to enter the budget 
+        tk.Label(bud_window, text="Enter the monthy budget:").pack()
+        #entry box
+        bud_entry = tk.Entry(bud_window)
+        bud_entry.pack()
+        #button to calculate budget
+        tk.Button( bud_window,text="Calculate",command=lambda: self.cal_bud(bud_entry.get())).pack(pady=10)
+        #check budget to see if it is a valid amount using validation function
+    def cal_bud(self, monthly_budget):
+        #validation to ensure input is correct
+        if not is_valid_amount(monthly_budget):
+            messagebox.showerror("Error", "Enter a valid number above 0 for the budget")
+            return
+        #checks if there are no transactions to prevent errors
+        if not self.transaction_manager.transactions:
+            messagebox.showinfo("Info", "No transactions found")
+            return
+        monthly_budget = float(monthly_budget)
+    #stores the budget so it can be reused 
+        self.budget = BudgetManager(monthly_budget)
+        #calculates values using budget manager 
+        total = self.budget.calculate_total_expenses(self.transaction_manager)
+        remaining = self.budget.remaining_budget(self.transaction_manager)
+        status = self.budget.budget_status(self.transaction_manager)
+        #calculates percentage of budget used
+        percentage = (total / monthly_budget) * 100
+        #displays the results to the user
+        messagebox.showinfo(
+            "Budget avaliable", f"Total expenses:{total}\nRemaing budget:{remaining}\nUsed:{percentage:.2f}%\n{status}" )
+          
 if __name__ == "__main__":
   gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
   if gui_cli == "2":
