@@ -1,7 +1,7 @@
 import json
-import datetime
 import tkinter as tk
 from tkinter import messagebox
+from datetime import datetime,timedelta
 #add all user inputs to a list, they dont need uniform attributes meaning expenses and incomes can have differnt end attributes.
 #filter by the attributes youy want
 #when making table get the type of transaction, then filter by just that so then its organised
@@ -254,8 +254,10 @@ class ForecastService:
       self.total_income = float(0)
       self.total_expense = float(0)
       self.total_recurring = float(0)
+      self.total_balance_after = float(0)
 
       self.current_date = datetime.now()
+      self.future_date = self.current_date + timedelta(days=30)
 
   # Returns all recurring bills stored in the transaction list.
   def forecast_recurring_bills(self):
@@ -263,34 +265,38 @@ class ForecastService:
       return self.transactionsrecurring
   # Returns total amount of recuring bills due in 30 days
   def forecast_recurring_bills_30days(self):
-      self.transactionsrecurring = self.forecast_recurring_bills
+      self.transactionsrecurring = self.forecast_recurring_bills()
       for bill in self.transactionsrecurring:
         # convert NextDueDate to datetime
-        due_date = datetime.strptime(bill.NextDueDate, "%Y-%m-%d")
+        try:
+          due_date = datetime.strptime(bill.NextDueDate, "%Y-%m-%d")
+        except ValueError:
+          continue
 
         #Checks if its within the next 30 days
         if self.current_date <= due_date <= self.future_date:
           self.transactionsrecurring30day.append(bill)
 
       self.transactionsrecurringamount = [t.Amount for t in self.transactionsrecurring30day]
-      return self.transactionsrecurring30day, self.transactionsrecurringamount
+      return self.transactionsrecurringamount
   
   # Returns a total amount for recurring bills
   def forecast_recurring_amount(self):
       self.transactionsrecurringamount = self.forecast_recurring_bills_30days()
-      self.total_recurring = sum(float(self.transactionsrecurringamount))
+      print(self.transactionsrecurringamount)
+      self.total_recurring = sum(float(x) for x in self.transactionsrecurringamount)
       return self.total_recurring
   
   # Calculates the expense amount.
   def forecast_monthly_expenses(self):
       self.transactionsexpense = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
-      self.total_expense = float(sum(self.transactionsexpense))
+      self.total_expense = sum(float(x) for x in self.transactionsexpense)
       return self.total_expense
 
   # Calculates the income amount
   def forecast_income_amount(self):
       self.transactionsincome = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
-      self.total_income = sum(float(self.transactionsincome))
+      self.total_income = sum(float(x) for x in self.transactionsincome)
       return self.total_income
   
   # Calculates the total balance
@@ -300,7 +306,8 @@ class ForecastService:
   
   # Calculates balance after recurring bills are taken off
   def forecast_balance_recurring(self):
-     self.total_balance - self.total_recurring
+     self.total_balance_after = float(self.total_balance - self.total_recurring)
+     return self.total_balance_after
 
 
 #  Budget calculations.
@@ -399,6 +406,8 @@ class App(tk.Tk):
         self.view_button.pack(pady=10)
         self.report_button = tk.Button(self, text="Generate Report", command=self.report_generator)
         self.report_button.pack(pady=10)
+        self.forecast_button = tk.Button(self, text="Generate Forecast", command=self.forecast_generator)
+        self.forecast_button.pack(pady=10)
     def add_transaction(self):
        new_window = tk.Toplevel(self)
        new_window.title("Add Transaction")
@@ -501,6 +510,26 @@ class App(tk.Tk):
         else:
             text.insert(tk.END, "No expenses found\n")
         text.insert(tk.END, f"\n{export_message}\n")
+    def forecast_generator(self):
+        forecast=ForecastService(self.transaction_manager)
+        total_expense=forecast.forecast_monthly_expenses()
+        total_income=forecast.forecast_income_amount()
+        recurring_bills=forecast.forecast_recurring_amount()
+        total_balance=forecast.forecast_balance()
+        total_balance_after=forecast.forecast_balance_recurring()
+        Forecast_window = tk.Toplevel(self)
+        Forecast_window.title("Forecast")
+        Forecast_window.geometry("400x300")
+        text = tk.Text(Forecast_window)
+        text.pack()
+        text.insert(tk.END, "Forecasted Report:\n")
+        text.insert(tk.END, "\n")
+        text.insert(tk.END, f"Average Monthly expense: £{total_expense}\n")
+        text.insert(tk.END, f"Average Income: £{total_income}\n")
+        text.insert(tk.END, f"Current Balance: £{total_balance}\n")
+        text.insert(tk.END, f"Amount of recurring bills due in 30 days: £{recurring_bills}\n")
+        text.insert(tk.END, f"Balance after recurring bills: £{total_balance_after}\n")
+
 
 if __name__ == "__main__":
   gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
@@ -575,13 +604,15 @@ if __name__ == "__main__":
            elif choice == 3:
              forecast=ForecastService(manager)
              #call the alll the forcat methods from the class 
-             average_expense=forecast.forecast_monthly_expenses()
-             average_income=forecast.forecast_income_amount()
-             recurring_bills=forecast.forecast_recurring_bills()
+             total_expense=forecast.forecast_monthly_expenses()
+             total_income=forecast.forecast_income_amount()
+             recurring_bills=forecast.forecast_recurring_amount()
+             total_balance=forecast.forecast_balance()
              #this will print the visual message 
-             print("The average monly expense is ",average_expense)
-             print("the average income ",average_income)
-             print("The recurring bill amount is ",recurring_bills)
+             print(f"The average monly expense is £{total_expense}.")
+             print(f"the average income {total_income}.")
+             print(f"The current amount balance is £{total_balance}.")
+             print(f"The recurring bill amount due within 30 days  is £{recurring_bills}")
            elif choice == 4:
              monthly_budget = check_input_is_valid(
                  "Enter your monthly budget: ",
