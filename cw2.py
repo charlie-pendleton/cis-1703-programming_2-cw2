@@ -420,7 +420,6 @@ class App(tk.Tk):
         self.forecast_button = tk.Button(self, text="Generate Forecast", command=self.forecast_generator)
         self.forecast_button.pack(pady=10)
     #for the add transaction window 
-    #for the add transaction window 
     def add_transaction(self):
         new_window = tk.Toplevel(self)
         new_window.title("Add Transaction")
@@ -456,7 +455,7 @@ class App(tk.Tk):
                     source_entry = tk.Entry(ext_frame)
                     source_entry.pack()
                     ext_frame.source_entry = source_entry      
-                # expe
+                # if expense is selected show catorgry and importance level 
                 elif type_var.get() == "Expense":
                     tk.Label(ext_frame, text="Category:").pack()
                     category_entry = tk.Entry(ext_frame)
@@ -470,13 +469,13 @@ class App(tk.Tk):
                     tk.Label(ext_frame, text="Frequency:").pack()
                     frequency_entry = tk.Entry(ext_frame)
                     frequency_entry.pack()
-                    #this is for the next due date if recurring biills is selected 
+                    #this is for the next due date if recurring bills is selected 
                     tk.Label(ext_frame, text="Next Due Date (yyyy-mm-dd):").pack()
                     next_due_entry = tk.Entry(ext_frame)
                     next_due_entry.pack()
                     ext_frame.frequency_entry = frequency_entry
                     ext_frame.next_due_entry = next_due_entry
-    # this makes the entry boox for each type of transaction to cahnage depending on 
+    # this makes the entry boox for each type of transaction to chanage depending on 
         type_dropdown.bind("<<ComboboxSelected>>", update_fields)
         update_fields()
         #submit button 
@@ -513,15 +512,17 @@ class App(tk.Tk):
           submit_recurring_bill = lambda: self.submit_recurring_bill(id, date, amount, description, frequency_entry.get(), next_due_date_entry.get(), new_window)
           tk.Button(new_window, text="Submit", command=submit_recurring_bill).pack(pady=10)
           return
-        # only add & show success for transactions created synchronously
+        # displays message when transaction is added 
         if transaction is not None:
             self.transaction_manager.add_transaction(transaction)
             messagebox.showinfo("Success", "Transaction added successfully")
-
+#for the recurrign bills 
     def submit_recurring_bill(self, id, date, amount, description, frequency_str, next_due_date_str, window):
+        #prevent entry of somethignthat is not and interger 
         if not is_valid_integer(frequency_str):
             messagebox.showerror("Error", "Frequency must be an integer above 0")
             return
+        #prevent non valid dates from being entered
         if not is_valid_date(next_due_date_str):
             messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
             return
@@ -535,6 +536,7 @@ class App(tk.Tk):
         self.transaction_manager.add_transaction(transaction)
         window.destroy()
         messagebox.showinfo("Success", "Recurring bill added successfully")
+    #allows user to veiw the report 
     def view_transactions(self):
         transactions = self.transaction_manager.view_transactions("transactions")
         view_window = tk.Toplevel(self)
