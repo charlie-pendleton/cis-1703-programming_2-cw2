@@ -459,7 +459,7 @@ class App(tk.Tk):
                     source_entry = tk.Entry(ext_frame)
                     source_entry.pack()
                     ext_frame.source_entry = source_entry      
-                # If expense is selected it will show 
+                # if expense is selected show catorgry and importance level 
                 elif type_var.get() == "Expense":
                     tk.Label(ext_frame, text="Category:").pack()
                     category_entry = tk.Entry(ext_frame)
@@ -473,15 +473,15 @@ class App(tk.Tk):
                     tk.Label(ext_frame, text="Frequency:").pack()
                     frequency_entry = tk.Entry(ext_frame)
                     frequency_entry.pack()
-                    #this is for the next due date if recurring biills is selected 
+                    #this is for the next due date if recurring bills is selected 
                     tk.Label(ext_frame, text="Next Due Date (yyyy-mm-dd):").pack()
                     next_due_entry = tk.Entry(ext_frame)
                     next_due_entry.pack()
                     ext_frame.frequency_entry = frequency_entry
                     ext_frame.next_due_entry = next_due_entry
     # this makes the entry boox for each type of transaction to chanage depending on 
-        type_dropdown.bind("<<ComboboxSelected>>", update_entry_boxes)
-        update_entry_boxes()
+        type_dropdown.bind("<<ComboboxSelected>>", update_fields)
+        update_fields()
         #submit button 
         tk.Button( new_window,  text="Submit",command=lambda: self.submit_transaction(  id_entry.get(),  date_entry.get(),  amount_entry.get(), description_entry.get(),type_var.get(), new_window) ).pack(pady=10)
     
