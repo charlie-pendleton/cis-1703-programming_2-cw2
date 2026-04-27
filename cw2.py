@@ -392,9 +392,8 @@ class ReportGenerator:
 
       except Exception as error:
           return f"Export failed: {error}"
-import tkinter as tk
-from tkinter import messagebox
-#this si the 
+
+#this is the class that does the GUI and allows for the user to have something interaxt with 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
