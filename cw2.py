@@ -480,8 +480,8 @@ class App(tk.Tk):
                     ext_frame.frequency_entry = frequency_entry
                     ext_frame.next_due_entry = next_due_entry
     # this makes the entry boox for each type of transaction to chanage depending on 
-        type_dropdown.bind("<<ComboboxSelected>>", update_fields)
-        update_fields()
+        type_dropdown.bind("<<ComboboxSelected>>", update_entry_boxes)
+        update_entry_boxes()
         #submit button 
         tk.Button( new_window,  text="Submit",command=lambda: self.submit_transaction(  id_entry.get(),  date_entry.get(),  amount_entry.get(), description_entry.get(),type_var.get(), new_window) ).pack(pady=10)
     
