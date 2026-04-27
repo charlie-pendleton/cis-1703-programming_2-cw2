@@ -392,6 +392,9 @@ class ReportGenerator:
 
       except Exception as error:
           return f"Export failed: {error}"
+import tkinter as tk
+from tkinter import messagebox
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -488,7 +491,7 @@ class App(tk.Tk):
     def submit_transaction(self, id, date, amount, description, type,window):
         #prevention for ID not to be an interger 
         if not is_valid_integer(id):
-            messagebox.showerror("Error", "ID must be an integer above 0")
+            messagebox.showerror("Error", "Invalid ID")
             return
         # loops through current transactions and compared the ID to the entered ID to prevent duplicate IDS 
         for t in self.transaction_manager.transactions:
@@ -496,8 +499,9 @@ class App(tk.Tk):
                 messagebox.showerror("Error", "ID already exists")
                 return
         if not is_valid_date(date):
-            messagebox.showerror("Error", "Date must be in format yyyy-mm-dd")
+            messagebox.showerror("Error", "Invalid date")
             return
+
         if not is_valid_amount(amount):
             messagebox.showerror("Error", "Amount must be a number above 0")
             return
