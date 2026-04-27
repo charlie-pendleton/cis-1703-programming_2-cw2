@@ -392,9 +392,8 @@ class ReportGenerator:
 
       except Exception as error:
           return f"Export failed: {error}"
-import tkinter as tk
-from tkinter import messagebox
 
+#this is the class that does the GUI and allows for the user to have something interaxt with 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -574,42 +573,81 @@ class App(tk.Tk):
         desc = self.desc_entry.get()
         type_ = self.type_var.get()
 
-        # validation
+        # ID validation
         if not is_valid_integer(id):
-            messagebox.showerror("Error", "Invalid ID")
+            messagebox.showerror("Error", "ID must be an integer above 0")
             return
 
+        # loop through transactions and compare the id with other ids in the tranaction file ensuring it is not a duplicate 
+        for t in self.transaction_manager.transactions:
+            if str(t.ID) == str(id):
+                messagebox.showerror("Error", "ID already exists")
+                return
+
+        # date validation
         if not is_valid_date(date):
-            messagebox.showerror("Error", "Invalid date")
+            messagebox.showerror("Error", "Date must be in format yyyy-mm-dd")
             return
 
+        # amount validation
         if not is_valid_amount(amount):
-            messagebox.showerror("Error", "Invalid amount")
+            messagebox.showerror("Error", "Amount must be a number above 0")
             return
 
         amount = float(amount)
 
+        # type validation
+        if not is_valid_type(type_):
+            messagebox.showerror("Error", "Type must be Income, Expense, or RecurringBill")
+            return
+
         if type_ == "Income":
             source = self.source_entry.get()
             taxable = self.tax_entry.get()
+            #income validation
+            if not source.strip():
+                messagebox.showerror("Error", "Source cannot be empty")
+                return
+
+            if not is_valid_bool(taxable):
+                messagebox.showerror("Error", "Taxable must be T or F")
+                return
+
             transaction = Income(id, date, amount, desc, source, taxable)
 
         elif type_ == "Expense":
             category = self.category_entry.get()
             importance = self.importance_entry.get()
-            transaction = Expense(id, date, amount, desc, category, importance)
+            #expense validation
+            if not category.strip():
+                messagebox.showerror("Error", "Category cannot be empty")
+                return
+
+            if not valid_importance_level(importance):
+                messagebox.showerror("Error", "Importance Level must be an integer between 1 and 10")
+                return
+            transaction = Expense(id, date, amount, desc, category, int(importance))
 
         elif type_ == "RecurringBill":
             freq = self.freq_entry.get()
             nextdue = self.nextdue_entry.get()
-            transaction = RecurringBill(id, date, amount, desc, freq, nextdue)
+            #recurring bill validation 
+            if not is_valid_integer(freq):
+                messagebox.showerror("Error", "Frequency must be an integer above 0")
+                return
+
+            if not is_valid_date(nextdue):
+                messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
+                return
+
+            transaction = RecurringBill(id, date, amount, desc, int(freq), nextdue)
 
         else:
             messagebox.showerror("Error", "Invalid type")
             return
 
         self.transaction_manager.add_transaction(transaction)
-        messagebox.showinfo("Success", "Transaction added")
+        messagebox.showinfo("Success", "Transaction added successfully")
 
     def create_view_transactions(self):
         frame = tk.Frame(self.container, bg="#1e1e2f")
