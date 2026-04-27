@@ -491,23 +491,125 @@ class App(tk.Tk):
 
         # Type
         tk.Label(frame, text="Type:").grid(row=5, column=0, sticky="w", padx=10)
-        self.type_entry = tk.Entry(frame)
-        self.type_entry.grid(row=5, column=1, padx=10)
+        # Dropdown Box
+        self.type_var = tk.StringVar()
+        self.type_var.set("Income")  # default value
+        # Adds dropdown box adding buttons based on the different selection
+        self.type_var.trace_add("write", self.update_fields)
+
+        self.type_dropdown = tk.OptionMenu(frame, self.type_var, "Income", "Expense", "RecurringBill")
+        self.type_dropdown.grid(row=5, column=1, padx=10)
 
         # Submit
-        tk.Button(frame, text="Submit", command=self.handle_add).grid(row=6, column=0, columnspan=2, pady=10)
+        tk.Button(frame, text="Submit", command=self.handle_add).grid(row=10, column=0, columnspan=2, pady=10)
 
         # Back button
-        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=7, column=0, columnspan=2)
+        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=11, column=0, columnspan=2)
+
+    # -------- EXTRA FIELDS --------
+
+        # Income fields
+        self.source_label = tk.Label(frame, text="Source:")
+        self.source_entry = tk.Entry(frame)
+
+        self.tax_label = tk.Label(frame, text="Taxable (T/F):")
+        self.tax_entry = tk.Entry(frame)
+
+        # Expense fields
+        self.category_label = tk.Label(frame, text="Category:")
+        self.category_entry = tk.Entry(frame)
+
+        self.importance_label = tk.Label(frame, text="Importance (1-10):")
+        self.importance_entry = tk.Entry(frame)
+
+        # Recurring fields
+        self.freq_label = tk.Label(frame, text="Frequency (days):")
+        self.freq_entry = tk.Entry(frame)
+
+        self.nextdue_label = tk.Label(frame, text="Next Due Date:")
+        self.nextdue_entry = tk.Entry(frame)
+
+        self.update_fields()
+
+    def update_fields(self, *args):
+        # Hide everything first
+        for widget in [
+            self.source_label, self.source_entry,
+            self.tax_label, self.tax_entry,
+            self.category_label, self.category_entry,
+            self.importance_label, self.importance_entry,
+            self.freq_label, self.freq_entry,
+            self.nextdue_label, self.nextdue_entry
+        ]:
+            widget.grid_forget()
+
+        type_ = self.type_var.get()
+
+        # Show only relevant fields
+        if type_ == "Income":
+            self.source_label.grid(row=6, column=0, sticky="w", padx=10)
+            self.source_entry.grid(row=6, column=1, padx=10)
+
+            self.tax_label.grid(row=7, column=0, sticky="w", padx=10)
+            self.tax_entry.grid(row=7, column=1, padx=10)
+
+        elif type_ == "Expense":
+            self.category_label.grid(row=6, column=0, sticky="w", padx=10)
+            self.category_entry.grid(row=6, column=1, padx=10)
+
+            self.importance_label.grid(row=7, column=0, sticky="w", padx=10)
+            self.importance_entry.grid(row=7, column=1, padx=10)
+
+        elif type_ == "RecurringBill":
+            self.freq_label.grid(row=6, column=0, sticky="w", padx=10)
+            self.freq_entry.grid(row=6, column=1, padx=10)
+
+            self.nextdue_label.grid(row=7, column=0, sticky="w", padx=10)
+            self.nextdue_entry.grid(row=7, column=1, padx=10)
 
     def handle_add(self):
         id = self.id_entry.get()
         date = self.date_entry.get()
         amount = self.amount_entry.get()
         desc = self.desc_entry.get()
-        type = self.type_entry.get()
+        type_ = self.type_var.get()
 
-        self.submit_transaction(id, date, amount, desc, type)
+        # validation
+        if not is_valid_integer(id):
+            messagebox.showerror("Error", "Invalid ID")
+            return
+
+        if not is_valid_date(date):
+            messagebox.showerror("Error", "Invalid date")
+            return
+
+        if not is_valid_amount(amount):
+            messagebox.showerror("Error", "Invalid amount")
+            return
+
+        amount = float(amount)
+
+        if type_ == "Income":
+            source = self.source_entry.get()
+            taxable = self.tax_entry.get()
+            transaction = Income(id, date, amount, desc, source, taxable)
+
+        elif type_ == "Expense":
+            category = self.category_entry.get()
+            importance = self.importance_entry.get()
+            transaction = Expense(id, date, amount, desc, category, importance)
+
+        elif type_ == "RecurringBill":
+            freq = self.freq_entry.get()
+            nextdue = self.nextdue_entry.get()
+            transaction = RecurringBill(id, date, amount, desc, freq, nextdue)
+
+        else:
+            messagebox.showerror("Error", "Invalid type")
+            return
+
+        self.transaction_manager.add_transaction(transaction)
+        messagebox.showinfo("Success", "Transaction added")
 
     def create_view_transactions(self):
         frame = tk.Frame(self.container, bg="#1e1e2f")
