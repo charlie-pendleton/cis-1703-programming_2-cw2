@@ -1,7 +1,8 @@
 import json
-import datetime
 import tkinter as tk
 from tkinter import messagebox
+from datetime import datetime,timedelta
+from tkinter import ttk
 #add all user inputs to a list, they dont need uniform attributes meaning expenses and incomes can have differnt end attributes.
 #filter by the attributes youy want
 #when making table get the type of transaction, then filter by just that so then its organised
@@ -9,7 +10,7 @@ from tkinter import messagebox
 #validation for date
 def is_valid_date(date_str):
     try:
-        datetime.datetime.strptime(date_str, '%Y-%m-%d')
+        datetime.strptime(date_str, '%Y-%m-%d')
         return True
     except ValueError:
         return False
@@ -69,8 +70,7 @@ def is_valid_bool(boolean):
     return True
   else:
     return False
-
-# ensures importance level i snot going higher then 10 
+# ensures importance level is not going higher then 10 
 def valid_importance_level(level_str):
     try:
         level = int(level_str)
@@ -244,24 +244,70 @@ class ForecastService:
   def __init__(self, transaction_manager):
       # Uses the same TransactionManager object so it can access stored transactions.
       self.manager = transaction_manager
+      self.transactionsexpense = []
+      self.transactionsincome = []
+      self.transactionsrecurring = []
+      self.transactionsrecurring30day = []
+      self.transactionsrecurringamount = []
 
-  # Calculates the average expense amount.
-  def forecast_monthly_expenses(self):
-      expenses = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
-      if not expenses:
-          return 0
-      return sum(expenses) / len(expenses)
+      self.total_balance = float(0)
+      self.total_income = float(0)
+      self.total_expense = float(0)
+      self.total_recurring = float(0)
+      self.total_balance_after = float(0)
 
-  # Calculates the average income amount and rounds it to 4 decimal places.
-  def forecast_income_amount(self):
-      incomes = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
-      if not incomes:
-          return 0
-      return round(sum(incomes) / len(incomes), 2)
+      self.current_date = datetime.now()
+      self.future_date = self.current_date + timedelta(days=30)
 
   # Returns all recurring bills stored in the transaction list.
   def forecast_recurring_bills(self):
-      return [t for t in self.manager.transactions if isinstance(t, RecurringBill)]
+      self.transactionsrecurring = [t for t in self.manager.transactions if isinstance(t, RecurringBill)]
+      return self.transactionsrecurring
+  # Returns total amount of recuring bills due in 30 days
+  def forecast_recurring_bills_30days(self):
+      self.transactionsrecurring = self.forecast_recurring_bills()
+      for bill in self.transactionsrecurring:
+        # convert NextDueDate to datetime
+        try:
+          due_date = datetime.strptime(bill.NextDueDate, "%Y-%m-%d")
+        except ValueError:
+          continue
+
+        #Checks if its within the next 30 days
+        if self.current_date <= due_date <= self.future_date:
+          self.transactionsrecurring30day.append(bill)
+
+      self.transactionsrecurringamount = [t.Amount for t in self.transactionsrecurring30day]
+      return self.transactionsrecurringamount
+  
+  # Returns a total amount for recurring bills
+  def forecast_recurring_amount(self):
+      self.transactionsrecurringamount = self.forecast_recurring_bills_30days()
+      print(self.transactionsrecurringamount)
+      self.total_recurring = sum(float(x) for x in self.transactionsrecurringamount)
+      return self.total_recurring
+  
+  # Calculates the expense amount.
+  def forecast_monthly_expenses(self):
+      self.transactionsexpense = [t.Amount for t in self.manager.transactions if isinstance(t, Expense)]
+      self.total_expense = sum(float(x) for x in self.transactionsexpense)
+      return self.total_expense
+
+  # Calculates the income amount
+  def forecast_income_amount(self):
+      self.transactionsincome = [t.Amount for t in self.manager.transactions if isinstance(t, Income)]
+      self.total_income = sum(float(x) for x in self.transactionsincome)
+      return self.total_income
+  
+  # Calculates the total balance
+  def forecast_balance(self):
+      self.total_balance = float(self.total_income - self.total_expense)
+      return self.total_balance
+  
+  # Calculates balance after recurring bills are taken off
+  def forecast_balance_recurring(self):
+     self.total_balance_after = float(self.total_balance - self.total_recurring)
+     return self.total_balance_after
 
 
 #  Budget calculations.
@@ -350,40 +396,105 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Transaction Manager")
-        self.geometry("400x300")
+        self.geometry("400x500")
         self.transaction_manager = TransactionManager()
         self.create_widgets()
+        #stores the budget
+        self.budget = None  
+   #function that creates the button layout 
     def create_widgets(self):
+        #add button 
         self.add_button = tk.Button(self, text="Add Transaction", command=self.add_transaction)
         self.add_button.pack(pady=10)
+        #veiw button
         self.view_button = tk.Button(self, text="View Transactions", command=self.view_transactions)
         self.view_button.pack(pady=10)
+        #the generate report button 
         self.report_button = tk.Button(self, text="Generate Report", command=self.report_generator)
         self.report_button.pack(pady=10)
+        #budget manager buttons  
+        self.budget_man_btn = tk.Button(self, text="Budget Manager", command=self.budget_manager)
+        self.budget_man_btn.pack(pady=10)
+        #forecast manager buttons
+        self.forecast_button = tk.Button(self, text="Generate Forecast", command=self.forecast_generator)
+        self.forecast_button.pack(pady=10)
+    #for the add transaction window 
     def add_transaction(self):
-       new_window = tk.Toplevel(self)
-       new_window.title("Add Transaction")
-       new_window.geometry("300x400")
-       tk.Label(new_window, text="ID:").pack()
-       id_entry = tk.Entry(new_window)
-       id_entry.pack()
-       tk.Label(new_window, text="Date (yyyy-mm-dd):").pack()
-       date_entry = tk.Entry(new_window)
-       date_entry.pack()
-       tk.Label(new_window, text="Amount:").pack()
-       amount_entry = tk.Entry(new_window)
-       amount_entry.pack()
-       tk.Label(new_window, text="Description:").pack()
-       description_entry = tk.Entry(new_window)
-       description_entry.pack()
-       tk.Label(new_window, text="Type (Income, Expense, RecurringBill):").pack()
-       type_entry = tk.Entry(new_window)
-       type_entry.pack()
-       tk.Button(new_window, text="Submit", command=lambda: self.submit_transaction(id_entry.get(), date_entry.get(), amount_entry.get(), description_entry.get(), type_entry.get())).pack(pady=10)
-    def submit_transaction(self, id, date, amount, description, type):
+        new_window = tk.Toplevel(self)
+        new_window.title("Add Transaction")
+        new_window.geometry("300x500")
+        tk.Label(new_window, text="ID:").pack()
+        id_entry = tk.Entry(new_window)
+        id_entry.pack()
+        #label for the date 
+        tk.Label(new_window, text="Date (yyyy-mm-dd):").pack()
+        #entry box for user 
+        date_entry = tk.Entry(new_window)
+        date_entry.pack()
+        tk.Label(new_window, text="Amount:").pack()
+        #amount entry box 
+        amount_entry = tk.Entry(new_window)
+        amount_entry.pack()
+        tk.Label(new_window, text="Description:").pack()
+        description_entry = tk.Entry(new_window)
+        description_entry.pack()
+        tk.Label(new_window, text="Type:").pack()
+        ##stores the selected drop down option with the default being 
+        type_var = tk.StringVar(value="Income")
+        #adds drop down box so user doesn't misspell one of the options.this is a  HCI principle 
+        type_dropdown = ttk.Combobox(new_window,textvariable=type_var,values=["Income", "Expense", "RecurringBill"],state="readonly")
+        type_dropdown.pack()
+        #new fram which allows for options to change based on dropdown selected 
+        self.ext_frame=tk.Frame(new_window)
+        ext_frame = self.ext_frame
+        ext_frame.pack(pady=10)
+        #it is add transactions as it uses variables used in add transaction function and as this is only required once there was no need to make  ext_frame and type_var global 
+        def update_entry_boxes(event=None):
+                # clear the options for any other selection in drop down box.winfo_children will check the widgets under selection 
+                for widget in ext_frame.winfo_children():
+                    widget.destroy()
+                # if income seleced then it will show source 
+                if type_var.get() == "Income":
+                    tk.Label(ext_frame, text="Source:").pack()
+                    source_entry = tk.Entry(ext_frame)
+                    source_entry.pack()
+                    ext_frame.source_entry = source_entry      
+                # if expense is selected show catorgry and importance level 
+                elif type_var.get() == "Expense":
+                    tk.Label(ext_frame, text="Category:").pack()
+                    category_entry = tk.Entry(ext_frame)
+                    category_entry.pack()
+                    tk.Label(ext_frame, text="Importance Level (1-10):").pack()
+                    importance_entry = tk.Entry(ext_frame)
+                    importance_entry.pack()
+                    ext_frame.category_entry = category_entry
+                    ext_frame.importance_entry = importance_entry
+                elif type_var.get() == "RecurringBill":
+                    tk.Label(ext_frame, text="Frequency:").pack()
+                    frequency_entry = tk.Entry(ext_frame)
+                    frequency_entry.pack()
+                    #this is for the next due date if recurring bills is selected 
+                    tk.Label(ext_frame, text="Next Due Date (yyyy-mm-dd):").pack()
+                    next_due_entry = tk.Entry(ext_frame)
+                    next_due_entry.pack()
+                    ext_frame.frequency_entry = frequency_entry
+                    ext_frame.next_due_entry = next_due_entry
+    # this makes the entry boox for each type of transaction to chanage depending on 
+        type_dropdown.bind("<<ComboboxSelected>>", update_entry_boxes)
+        update_entry_boxes()
+        #submit button 
+        tk.Button( new_window,  text="Submit",command=lambda: self.submit_transaction(  id_entry.get(),  date_entry.get(),  amount_entry.get(), description_entry.get(),type_var.get(), new_window) ).pack(pady=10)
+    
+    def submit_transaction(self, id, date, amount, description, type,window):
+        #prevention for ID not to be an interger 
         if not is_valid_integer(id):
             messagebox.showerror("Error", "ID must be an integer above 0")
             return
+        # loops through current transactions and compared the ID to the entered ID to prevent duplicate IDS 
+        for t in self.transaction_manager.transactions:
+            if str(t.ID) == str(id):
+                messagebox.showerror("Error", "ID already exists")
+                return
         if not is_valid_date(date):
             messagebox.showerror("Error", "Date must be in format yyyy-mm-dd")
             return
@@ -395,53 +506,65 @@ class App(tk.Tk):
             return
         transaction = None
         if type == "Income":
-            transaction = Income(id, date, float(amount), description, "Source", "T")
+            source = self.ext_frame.source_entry.get()
+            #prevent empty source from being added 
+            if not source.strip():
+                messagebox.showerror("Error","Source cannot be empty")
+                return
+            isTaxable = "T"
+            #prevent any other input apart form True or False
+            if not is_valid_bool(isTaxable):
+                messagebox.showerror( "Error","Taxable must be T or F")
+                return
+            transaction = Income(id, date, float(amount), description, source, isTaxable)
         elif type == "Expense":
-            transaction = Expense(id, date, float(amount), description, "Category", 1)
+            importance = self.ext_frame.importance_entry.get()
+            category = self.ext_frame.category_entry.get()
+            #ensure that  catogory is not empty when submitted 
+            if not category.strip():
+                messagebox.showerror("Error","Category cannot be empty")
+                return
+            #ensures that there is only a valid entry of importance level 
+            if not valid_importance_level(importance):
+              messagebox.showerror( "Error","Importance Level must be an integer between 1 and 10")
+              return
+            transaction = Expense(id, date, float(amount), description, category, int(importance))
         elif type == "RecurringBill":
-          new_window = tk.Toplevel(self)
-          new_window.title("Recurring Bill Details")
-          new_window.geometry("300x200")
-          tk.Label(new_window, text="Frequency:").pack()
-          frequency_entry = tk.Entry(new_window)
-          frequency_entry.pack()
-          tk.Label(new_window, text="Next Due Date (yyyy-mm-dd):").pack()
-          next_due_date_entry = tk.Entry(new_window)
-          next_due_date_entry.pack()
-          submit_recurring_bill = lambda: self.submit_recurring_bill(id, date, amount, description, frequency_entry.get(), next_due_date_entry.get(), new_window)
-          tk.Button(new_window, text="Submit", command=submit_recurring_bill).pack(pady=10)
-          return
+            #checks if the input  exist before accessing them.hasattr checks for as specific atttribute hwich is frequency and next due date  
+            if not hasattr(self.ext_frame, "frequency_entry") or not hasattr(self.ext_frame, "next_due_entry"):
+                messagebox.showerror("Error", "Please select RecurringBill and fill all entry boxes ")
+                return
+            #gets the users input form the entry boxes 
+            frequency = self.ext_frame.frequency_entry.get()
+            next_due_date = self.ext_frame.next_due_entry.get()
+            #ensure that frequency is entered correctly 
+            if not is_valid_integer(frequency):
+                messagebox.showerror("Error", "Frequency must be an integer above 0")
+                return
+            #check for date is in the write format 
+            if not is_valid_date(next_due_date):
+                messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
+                return
+            transaction = RecurringBill(id, date, float(amount), description, int(frequency), next_due_date)
         # only add & show success for transactions created synchronously
         if transaction is not None:
             self.transaction_manager.add_transaction(transaction)
             messagebox.showinfo("Success", "Transaction added successfully")
+            window.destroy()
 
-    def submit_recurring_bill(self, id, date, amount, description, frequency_str, next_due_date_str, window):
-        if not is_valid_integer(frequency_str):
-            messagebox.showerror("Error", "Frequency must be an integer above 0")
-            return
-        if not is_valid_date(next_due_date_str):
-            messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
-            return
-        try:
-            freq = int(frequency_str)
-            amt = float(amount)
-        except ValueError:
-            messagebox.showerror("Error", "Frequency must be an integer and Amount a number")
-            return
-        transaction = RecurringBill(id, date, amt, description, freq, next_due_date_str)
-        self.transaction_manager.add_transaction(transaction)
-        window.destroy()
-        messagebox.showinfo("Success", "Recurring bill added successfully")
     def view_transactions(self):
         transactions = self.transaction_manager.view_transactions("transactions")
+        #ensure it appears above any other open window 
         view_window = tk.Toplevel(self)
+        #window tiitle and proportions 
         view_window.title("View Transactions")
         view_window.geometry("400x300")
         text = tk.Text(view_window)
         text.pack()
+        #loops through transactions and outputs them on the veiw window one after another after each one it will start a new line 
         for t in transactions:
             text.insert(tk.END, f"{t}\n")
+    #Report generator screen 
     def report_generator(self):
         report = ReportGenerator(self.transaction_manager)
         summary = report.summary_report()
@@ -462,7 +585,60 @@ class App(tk.Tk):
         else:
             text.insert(tk.END, "No expenses found\n")
         text.insert(tk.END, f"\n{export_message}\n")
-
+    def forecast_generator(self):
+        forecast=ForecastService(self.transaction_manager)
+        total_expense=forecast.forecast_monthly_expenses()
+        total_income=forecast.forecast_income_amount()
+        recurring_bills=forecast.forecast_recurring_amount()
+        total_balance=forecast.forecast_balance()
+        total_balance_after=forecast.forecast_balance_recurring()
+        Forecast_window = tk.Toplevel(self)
+        Forecast_window.title("Forecast")
+        Forecast_window.geometry("400x300")
+        text = tk.Text(Forecast_window)
+        text.pack()
+        text.insert(tk.END, "Forecasted Report:\n")
+        text.insert(tk.END, "\n")
+        text.insert(tk.END, f"Average Monthly expense: £{total_expense}\n")
+        text.insert(tk.END, f"Average Income: £{total_income}\n")
+        text.insert(tk.END, f"Current Balance: £{total_balance}\n")
+        text.insert(tk.END, f"Amount of recurring bills due in 30 days: £{recurring_bills}\n")
+        text.insert(tk.END, f"Balance after recurring bills: £{total_balance_after}\n")
+    #opens window when budgetmanager button is pressed 
+    def budget_manager(self):
+        bud_window = tk.Toplevel(self)
+        bud_window.title("Budget Manager")
+        bud_window.geometry("300x200")
+        #text to prompt the user to enter the budget 
+        tk.Label(bud_window, text="Enter the monthy budget:").pack()
+        #entry box
+        bud_entry = tk.Entry(bud_window)
+        bud_entry.pack()
+        #button to calculate budget
+        tk.Button( bud_window,text="Calculate",command=lambda: self.cal_bud(bud_entry.get())).pack(pady=10)
+        #check budget to see if it is a valid amount using validation function
+    def cal_bud(self, monthly_budget):
+        #validation to ensure input is correct
+        if not is_valid_amount(monthly_budget):
+            messagebox.showerror("Error", "Enter a valid number above 0 for the budget")
+            return
+        #checks if there are no transactions to prevent errors
+        if not self.transaction_manager.transactions:
+            messagebox.showinfo("Info", "No transactions found")
+            return
+        monthly_budget = float(monthly_budget)
+    #stores the budget so it can be reused 
+        self.budget = BudgetManager(monthly_budget)
+        #calculates values using budget manager 
+        total = self.budget.calculate_total_expenses(self.transaction_manager)
+        remaining = self.budget.remaining_budget(self.transaction_manager)
+        status = self.budget.budget_status(self.transaction_manager)
+        #calculates percentage of budget used
+        percentage = (total / monthly_budget) * 100
+        #displays the results to the user
+        messagebox.showinfo(
+            "Budget avaliable", f"Total expenses:{total}\nRemaing budget:{remaining}\nUsed:{percentage:.2f}%\n{status}" )
+          
 if __name__ == "__main__":
   gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
   if gui_cli == "2":
@@ -532,17 +708,19 @@ if __name__ == "__main__":
                break
              
            elif choice == 2:
-             manager.view_transactions("transactions")
+              manager.view_transactions("transactions")
            elif choice == 3:
              forecast=ForecastService(manager)
              #call the alll the forcat methods from the class 
-             average_expense=forecast.forecast_monthly_expenses()
-             average_income=forecast.forecast_income_amount()
-             recurring_bills=forecast.forecast_recurring_bills()
+             total_expense=forecast.forecast_monthly_expenses()
+             total_income=forecast.forecast_income_amount()
+             recurring_bills=forecast.forecast_recurring_amount()
+             total_balance=forecast.forecast_balance()
              #this will print the visual message 
-             print("The average monly expense is ",average_expense)
-             print("the average income ",average_income)
-             print("The recurring bill amount is ",recurring_bills)
+             print(f"The average monly expense is £{total_expense}.")
+             print(f"the average income {total_income}.")
+             print(f"The current amount balance is £{total_balance}.")
+             print(f"The recurring bill amount due within 30 days  is £{recurring_bills}")
            elif choice == 4:
              monthly_budget = check_input_is_valid(
                  "Enter your monthly budget: ",
