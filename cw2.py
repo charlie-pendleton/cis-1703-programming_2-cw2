@@ -426,10 +426,13 @@ class App(tk.Tk):
         tk.Label(new_window, text="ID:").pack()
         id_entry = tk.Entry(new_window)
         id_entry.pack()
+        #label for the date 
         tk.Label(new_window, text="Date (yyyy-mm-dd):").pack()
+        #entry box for user 
         date_entry = tk.Entry(new_window)
         date_entry.pack()
         tk.Label(new_window, text="Amount:").pack()
+        #amount entry box 
         amount_entry = tk.Entry(new_window)
         amount_entry.pack()
         tk.Label(new_window, text="Description:").pack()
@@ -445,8 +448,9 @@ class App(tk.Tk):
         self.ext_frame=tk.Frame(new_window)
         ext_frame = self.ext_frame
         ext_frame.pack(pady=10)
-        def update_fields(event=None):
-                # clear the options for anyother option i n dropdown menu before it 
+        #it is add transactions as it uses variables used in add transaction function and as this is only required once there was no need to make  ext_frame and type_var global 
+        def update_entry_boxes(event=None):
+                # clear the options for any other selection in drop down box.winfo_children will check the widgets under selection 
                 for widget in ext_frame.winfo_children():
                     widget.destroy()
                 # if income seleced then it will show source 
@@ -455,7 +459,7 @@ class App(tk.Tk):
                     source_entry = tk.Entry(ext_frame)
                     source_entry.pack()
                     ext_frame.source_entry = source_entry      
-                # expe
+                # If expense is selected it will show 
                 elif type_var.get() == "Expense":
                     tk.Label(ext_frame, text="Category:").pack()
                     category_entry = tk.Entry(ext_frame)
@@ -475,16 +479,22 @@ class App(tk.Tk):
                     next_due_entry.pack()
                     ext_frame.frequency_entry = frequency_entry
                     ext_frame.next_due_entry = next_due_entry
-    # this makes the entry boox for each type of transaction to cahnage depending on 
-        type_dropdown.bind("<<ComboboxSelected>>", update_fields)
-        update_fields()
+    # this makes the entry boox for each type of transaction to chanage depending on 
+        type_dropdown.bind("<<ComboboxSelected>>", update_entry_boxes)
+        update_entry_boxes()
         #submit button 
         tk.Button( new_window,  text="Submit",command=lambda: self.submit_transaction(  id_entry.get(),  date_entry.get(),  amount_entry.get(), description_entry.get(),type_var.get(), new_window) ).pack(pady=10)
     
     def submit_transaction(self, id, date, amount, description, type,window):
+        #prevention for ID not to be an interger 
         if not is_valid_integer(id):
             messagebox.showerror("Error", "ID must be an integer above 0")
             return
+        # loops through current transactions and compared the ID to the entered ID to prevent duplicate IDS 
+        for t in self.transaction_manager.transactions:
+            if str(t.ID) == str(id):
+                messagebox.showerror("Error", "ID already exists")
+                return
         if not is_valid_date(date):
             messagebox.showerror("Error", "Date must be in format yyyy-mm-dd")
             return
@@ -497,7 +507,7 @@ class App(tk.Tk):
         transaction = None
         if type == "Income":
             source = self.ext_frame.source_entry.get()
-            #prevent empty source from beign added 
+            #prevent empty source from being added 
             if not source.strip():
                 messagebox.showerror("Error","Source cannot be empty")
                 return
@@ -520,11 +530,11 @@ class App(tk.Tk):
               return
             transaction = Expense(id, date, float(amount), description, category, int(importance))
         elif type == "RecurringBill":
-            #checks if the fields exist before accessing them 
+            #checks if the input  exist before accessing them.hasattr checks for as specific atttribute hwich is frequency and next due date  
             if not hasattr(self.ext_frame, "frequency_entry") or not hasattr(self.ext_frame, "next_due_entry"):
-                messagebox.showerror("Error", "Please select RecurringBill and fill all fields")
+                messagebox.showerror("Error", "Please select RecurringBill and fill all entry boxes ")
                 return
-            #gets the users input form the entry bozxes 
+            #gets the users input form the entry boxes 
             frequency = self.ext_frame.frequency_entry.get()
             next_due_date = self.ext_frame.next_due_entry.get()
             #ensure that frequency is entered correctly 
@@ -544,11 +554,14 @@ class App(tk.Tk):
 
     def view_transactions(self):
         transactions = self.transaction_manager.view_transactions("transactions")
+        #ensure it appears above any other open window 
         view_window = tk.Toplevel(self)
+        #window tiitle and proportions 
         view_window.title("View Transactions")
         view_window.geometry("400x300")
         text = tk.Text(view_window)
         text.pack()
+        #loops through transactions and outputs them on the veiw window one after another after each one it will start a new line 
         for t in transactions:
             text.insert(tk.END, f"{t}\n")
     #Report generator screen 
