@@ -11,7 +11,6 @@ Ujala: Developer
 
 Logan Thompson-Davies: Developer
 
-Dominic Hayward: Developer
 
 
 How to use:
