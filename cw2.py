@@ -2,6 +2,7 @@ import json
 import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime,timedelta
+from tkinter import ttk
 #add all user inputs to a list, they dont need uniform attributes meaning expenses and incomes can have differnt end attributes.
 #filter by the attributes youy want
 #when making table get the type of transaction, then filter by just that so then its organised
@@ -9,7 +10,7 @@ from datetime import datetime,timedelta
 #validation for date
 def is_valid_date(date_str):
     try:
-        datetime.datetime.strptime(date_str, '%Y-%m-%d')
+        datetime.strptime(date_str, '%Y-%m-%d')
         return True
     except ValueError:
         return False
@@ -419,26 +420,67 @@ class App(tk.Tk):
         self.forecast_button = tk.Button(self, text="Generate Forecast", command=self.forecast_generator)
         self.forecast_button.pack(pady=10)
     #for the add transaction window 
+    #for the add transaction window 
     def add_transaction(self):
-       new_window = tk.Toplevel(self)
-       new_window.title("Add Transaction")
-       new_window.geometry("300x400")
-       tk.Label(new_window, text="ID:").pack()
-       id_entry = tk.Entry(new_window)
-       id_entry.pack()
-       tk.Label(new_window, text="Date (yyyy-mm-dd):").pack()
-       date_entry = tk.Entry(new_window)
-       date_entry.pack()
-       tk.Label(new_window, text="Amount:").pack()
-       amount_entry = tk.Entry(new_window)
-       amount_entry.pack()
-       tk.Label(new_window, text="Description:").pack()
-       description_entry = tk.Entry(new_window)
-       description_entry.pack()
-       tk.Label(new_window, text="Type (Income, Expense, RecurringBill):").pack()
-       type_entry = tk.Entry(new_window)
-       type_entry.pack()
-       tk.Button(new_window, text="Submit", command=lambda: self.submit_transaction(id_entry.get(), date_entry.get(), amount_entry.get(), description_entry.get(), type_entry.get())).pack(pady=10)
+        new_window = tk.Toplevel(self)
+        new_window.title("Add Transaction")
+        new_window.geometry("300x500")
+        tk.Label(new_window, text="ID:").pack()
+        id_entry = tk.Entry(new_window)
+        id_entry.pack()
+        tk.Label(new_window, text="Date (yyyy-mm-dd):").pack()
+        date_entry = tk.Entry(new_window)
+        date_entry.pack()
+        tk.Label(new_window, text="Amount:").pack()
+        amount_entry = tk.Entry(new_window)
+        amount_entry.pack()
+        tk.Label(new_window, text="Description:").pack()
+        description_entry = tk.Entry(new_window)
+        description_entry.pack()
+        tk.Label(new_window, text="Type:").pack()
+        ##stores the selected drop down option with the default being 
+        type_var = tk.StringVar(value="Income")
+        #adds drop down box so user doesn't misspell one of the options.this is a  HCI principle 
+        type_dropdown = ttk.Combobox(new_window,textvariable=type_var,values=["Income", "Expense", "RecurringBill"],state="readonly")
+        type_dropdown.pack()
+        #new fram which allows for options to change based on dropdown selected 
+        ext_frame=tk.Frame(new_window)
+        ext_frame.pack(pady=10)
+        def update_fields(event=None):
+                # clear the options for anyother option i n dropdown menu before it 
+                for widget in ext_frame.winfo_children():
+                    widget.destroy()
+                # if income seleced then it will show source 
+                if type_var.get() == "Income":
+                    tk.Label(ext_frame, text="Source:").pack()
+                    source_entry = tk.Entry(ext_frame)
+                    source_entry.pack()
+                    ext_frame.source_entry = source_entry      
+                # expe
+                elif type_var.get() == "Expense":
+                    tk.Label(ext_frame, text="Category:").pack()
+                    category_entry = tk.Entry(ext_frame)
+                    category_entry.pack()
+                    tk.Label(ext_frame, text="Importance Level (1-10):").pack()
+                    importance_entry = tk.Entry(ext_frame)
+                    importance_entry.pack()
+                    ext_frame.category_entry = category_entry
+                    ext_frame.importance_entry = importance_entry
+                elif type_var.get() == "RecurringBill":
+                    tk.Label(ext_frame, text="Frequency:").pack()
+                    frequency_entry = tk.Entry(ext_frame)
+                    frequency_entry.pack()
+                    #this is for the next due date if recurring biills is selected 
+                    tk.Label(ext_frame, text="Next Due Date (yyyy-mm-dd):").pack()
+                    next_due_entry = tk.Entry(ext_frame)
+                    next_due_entry.pack()
+                    ext_frame.frequency_entry = frequency_entry
+                    ext_frame.next_due_entry = next_due_entry
+    # this makes the entry boox for each type of transaction to cahnage depending on 
+        type_dropdown.bind("<<ComboboxSelected>>", update_fields)
+        update_fields()
+        #submit button 
+        tk.Button( new_window,  text="Submit",command=lambda: self.submit_transaction(  id_entry.get(),  date_entry.get(),  amount_entry.get(), description_entry.get(),type_var.get()) ).pack(pady=10)
     
     def submit_transaction(self, id, date, amount, description, type):
         if not is_valid_integer(id):
