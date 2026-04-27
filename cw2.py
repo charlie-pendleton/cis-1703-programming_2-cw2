@@ -70,8 +70,7 @@ def is_valid_bool(boolean):
     return True
   else:
     return False
-
-# ensures importance level i snot going higher then 10 
+# ensures importance level is not going higher then 10 
 def valid_importance_level(level_str):
     try:
         level = int(level_str)
@@ -443,7 +442,8 @@ class App(tk.Tk):
         type_dropdown = ttk.Combobox(new_window,textvariable=type_var,values=["Income", "Expense", "RecurringBill"],state="readonly")
         type_dropdown.pack()
         #new fram which allows for options to change based on dropdown selected 
-        ext_frame=tk.Frame(new_window)
+        self.ext_frame=tk.Frame(new_window)
+        ext_frame = self.ext_frame
         ext_frame.pack(pady=10)
         def update_fields(event=None):
                 # clear the options for anyother option i n dropdown menu before it 
@@ -479,9 +479,9 @@ class App(tk.Tk):
         type_dropdown.bind("<<ComboboxSelected>>", update_fields)
         update_fields()
         #submit button 
-        tk.Button( new_window,  text="Submit",command=lambda: self.submit_transaction(  id_entry.get(),  date_entry.get(),  amount_entry.get(), description_entry.get(),type_var.get()) ).pack(pady=10)
+        tk.Button( new_window,  text="Submit",command=lambda: self.submit_transaction(  id_entry.get(),  date_entry.get(),  amount_entry.get(), description_entry.get(),type_var.get(), new_window) ).pack(pady=10)
     
-    def submit_transaction(self, id, date, amount, description, type):
+    def submit_transaction(self, id, date, amount, description, type,window):
         if not is_valid_integer(id):
             messagebox.showerror("Error", "ID must be an integer above 0")
             return
@@ -496,47 +496,52 @@ class App(tk.Tk):
             return
         transaction = None
         if type == "Income":
-            transaction = Income(id, date, float(amount), description, "Source", "T")
+            source = self.ext_frame.source_entry.get()
+            #prevent empty source from beign added 
+            if not source.strip():
+                messagebox.showerror("Error","Source cannot be empty")
+                return
+            isTaxable = "T"
+            #prevent any other input apart form True or False
+            if not is_valid_bool(isTaxable):
+                messagebox.showerror( "Error","Taxable must be T or F")
+                return
+            transaction = Income(id, date, float(amount), description, source, isTaxable)
         elif type == "Expense":
-            transaction = Expense(id, date, float(amount), description, "Category", 1)
+            importance = self.ext_frame.importance_entry.get()
+            category = self.ext_frame.category_entry.get()
+            #ensure that  catogory is not empty when submitted 
+            if not category.strip():
+                messagebox.showerror("Error","Category cannot be empty")
+                return
+            #ensures that there is only a valid entry of importance level 
+            if not valid_importance_level(importance):
+              messagebox.showerror( "Error","Importance Level must be an integer between 1 and 10")
+              return
+            transaction = Expense(id, date, float(amount), description, category, int(importance))
         elif type == "RecurringBill":
-          new_window = tk.Toplevel(self)
-          new_window.title("Recurring Bill Details")
-          new_window.geometry("300x200")
-          tk.Label(new_window, text="Frequency:").pack()
-          frequency_entry = tk.Entry(new_window)
-          frequency_entry.pack()
-          tk.Label(new_window, text="Next Due Date (yyyy-mm-dd):").pack()
-          next_due_date_entry = tk.Entry(new_window)
-          next_due_date_entry.pack()
-          submit_recurring_bill = lambda: self.submit_recurring_bill(id, date, amount, description, frequency_entry.get(), next_due_date_entry.get(), new_window)
-          tk.Button(new_window, text="Submit", command=submit_recurring_bill).pack(pady=10)
-          return
-        # displays message when transaction is added 
+            #checks if the fields exist before accessing them 
+            if not hasattr(self.ext_frame, "frequency_entry") or not hasattr(self.ext_frame, "next_due_entry"):
+                messagebox.showerror("Error", "Please select RecurringBill and fill all fields")
+                return
+            #gets the users input form the entry bozxes 
+            frequency = self.ext_frame.frequency_entry.get()
+            next_due_date = self.ext_frame.next_due_entry.get()
+            #ensure that frequency is entered correctly 
+            if not is_valid_integer(frequency):
+                messagebox.showerror("Error", "Frequency must be an integer above 0")
+                return
+            #check for date is in the write format 
+            if not is_valid_date(next_due_date):
+                messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
+                return
+            transaction = RecurringBill(id, date, float(amount), description, int(frequency), next_due_date)
+        # only add & show success for transactions created synchronously
         if transaction is not None:
             self.transaction_manager.add_transaction(transaction)
             messagebox.showinfo("Success", "Transaction added successfully")
-#for the recurrign bills 
-    def submit_recurring_bill(self, id, date, amount, description, frequency_str, next_due_date_str, window):
-        #prevent entry of somethignthat is not and interger 
-        if not is_valid_integer(frequency_str):
-            messagebox.showerror("Error", "Frequency must be an integer above 0")
-            return
-        #prevent non valid dates from being entered
-        if not is_valid_date(next_due_date_str):
-            messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
-            return
-        try:
-            freq = int(frequency_str)
-            amt = float(amount)
-        except ValueError:
-            messagebox.showerror("Error", "Frequency must be an integer and Amount a number")
-            return
-        transaction = RecurringBill(id, date, amt, description, freq, next_due_date_str)
-        self.transaction_manager.add_transaction(transaction)
-        window.destroy()
-        messagebox.showinfo("Success", "Recurring bill added successfully")
-    #allows user to veiw the report 
+            window.destroy()
+
     def view_transactions(self):
         transactions = self.transaction_manager.view_transactions("transactions")
         view_window = tk.Toplevel(self)
