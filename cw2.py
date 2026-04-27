@@ -392,190 +392,252 @@ class ReportGenerator:
 
       except Exception as error:
           return f"Export failed: {error}"
+import tkinter as tk
+from tkinter import messagebox
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Transaction Manager")
         self.geometry("400x500")
-        self.transaction_manager = TransactionManager()
-        self.create_widgets()
-        #stores the budget
-        self.budget = None  
-   #function that creates the button layout 
-    def create_widgets(self):
-        #add button 
-        self.add_button = tk.Button(self, text="Add Transaction", command=self.add_transaction)
-        self.add_button.pack(pady=10)
-        #veiw button
-        self.view_button = tk.Button(self, text="View Transactions", command=self.view_transactions)
-        self.view_button.pack(pady=10)
-        #the generate report button 
-        self.report_button = tk.Button(self, text="Generate Report", command=self.report_generator)
-        self.report_button.pack(pady=10)
-        #budget manager buttons  
-        self.budget_man_btn = tk.Button(self, text="Budget Manager", command=self.budget_manager)
-        self.budget_man_btn.pack(pady=10)
-        #forecast manager buttons
-        self.forecast_button = tk.Button(self, text="Generate Forecast", command=self.forecast_generator)
-        self.forecast_button.pack(pady=10)
-    #for the add transaction window 
-    def add_transaction(self):
-       new_window = tk.Toplevel(self)
-       new_window.title("Add Transaction")
-       new_window.geometry("300x400")
-       tk.Label(new_window, text="ID:").pack()
-       id_entry = tk.Entry(new_window)
-       id_entry.pack()
-       tk.Label(new_window, text="Date (yyyy-mm-dd):").pack()
-       date_entry = tk.Entry(new_window)
-       date_entry.pack()
-       tk.Label(new_window, text="Amount:").pack()
-       amount_entry = tk.Entry(new_window)
-       amount_entry.pack()
-       tk.Label(new_window, text="Description:").pack()
-       description_entry = tk.Entry(new_window)
-       description_entry.pack()
-       tk.Label(new_window, text="Type (Income, Expense, RecurringBill):").pack()
-       type_entry = tk.Entry(new_window)
-       type_entry.pack()
-       tk.Button(new_window, text="Submit", command=lambda: self.submit_transaction(id_entry.get(), date_entry.get(), amount_entry.get(), description_entry.get(), type_entry.get())).pack(pady=10)
-    
-    def submit_transaction(self, id, date, amount, description, type):
-        if not is_valid_integer(id):
-            messagebox.showerror("Error", "ID must be an integer above 0")
-            return
-        if not is_valid_date(date):
-            messagebox.showerror("Error", "Date must be in format yyyy-mm-dd")
-            return
-        if not is_valid_amount(amount):
-            messagebox.showerror("Error", "Amount must be a number above 0")
-            return
-        if not is_valid_type(type):
-            messagebox.showerror("Error", "Type must be Income, Expense, or RecurringBill")
-            return
-        transaction = None
-        if type == "Income":
-            transaction = Income(id, date, float(amount), description, "Source", "T")
-        elif type == "Expense":
-            transaction = Expense(id, date, float(amount), description, "Category", 1)
-        elif type == "RecurringBill":
-          new_window = tk.Toplevel(self)
-          new_window.title("Recurring Bill Details")
-          new_window.geometry("300x200")
-          tk.Label(new_window, text="Frequency:").pack()
-          frequency_entry = tk.Entry(new_window)
-          frequency_entry.pack()
-          tk.Label(new_window, text="Next Due Date (yyyy-mm-dd):").pack()
-          next_due_date_entry = tk.Entry(new_window)
-          next_due_date_entry.pack()
-          submit_recurring_bill = lambda: self.submit_recurring_bill(id, date, amount, description, frequency_entry.get(), next_due_date_entry.get(), new_window)
-          tk.Button(new_window, text="Submit", command=submit_recurring_bill).pack(pady=10)
-          return
-        # only add & show success for transactions created synchronously
-        if transaction is not None:
-            self.transaction_manager.add_transaction(transaction)
-            messagebox.showinfo("Success", "Transaction added successfully")
+        self.configure(bg="#1e1e2f")
 
-    def submit_recurring_bill(self, id, date, amount, description, frequency_str, next_due_date_str, window):
-        if not is_valid_integer(frequency_str):
-            messagebox.showerror("Error", "Frequency must be an integer above 0")
-            return
-        if not is_valid_date(next_due_date_str):
-            messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
-            return
-        try:
-            freq = int(frequency_str)
-            amt = float(amount)
-        except ValueError:
-            messagebox.showerror("Error", "Frequency must be an integer and Amount a number")
-            return
-        transaction = RecurringBill(id, date, amt, description, freq, next_due_date_str)
-        self.transaction_manager.add_transaction(transaction)
-        window.destroy()
-        messagebox.showinfo("Success", "Recurring bill added successfully")
-    def view_transactions(self):
+        self.transaction_manager = TransactionManager()
+        self.budget = None  
+
+        self.container = tk.Frame(self)
+        self.container.pack(fill="both", expand=True)
+
+        self.frames = {}
+
+        self.create_frames()
+        self.show_frame("main")
+
+    # ------------------ FRAME SETUP ------------------
+
+    def create_frames(self):
+        self.create_main_menu()
+        self.create_add_transaction()
+        self.create_view_transactions()
+        self.create_report()
+        self.create_forecast()
+        self.create_budget()
+
+        for frame in self.frames.values():
+            frame.place(relwidth=1, relheight=1)
+
+    def show_frame(self, name):
+        frame = self.frames[name]
+        frame.tkraise()
+
+        if name == "view":
+            self.refresh_transactions()
+        elif name == "report":
+            self.refresh_report()
+        elif name == "forecast":
+            self.refresh_forecast()
+
+    # ------------------ MAIN MENU ------------------
+
+    def create_main_menu(self):
+        frame = tk.Frame(self.container, bg="#1e1e2f")
+        self.frames["main"] = frame
+    # - Title
+        tk.Label(frame, text="Main Menu", width=20, font=("Arial", 16)).pack(pady=20)
+    # - Transactions-
+        tk.Button(frame, text="Add Transaction", width=20, command=lambda: self.show_frame("add")).pack(pady=10) 
+        tk.Button(frame, text="View Transactions", width=20, command=lambda: self.show_frame("view")).pack(pady=10)
+    # - Reports - 
+        tk.Button(frame, text="Generate Report", width=20, command=lambda: self.show_frame("report")).pack(pady=10)
+        tk.Button(frame, text="Generate Forecast", width=20, command=lambda: self.show_frame("forecast")).pack(pady=10)
+    # - Budgets - 
+        tk.Button(frame, text="Budget Manager", width=20, command=lambda: self.show_frame("budget")).pack(pady=10)
+    # - Exit -
+        tk.Button(frame, text="Exit", width=20, command=lambda: self.exit()).pack(pady=10)
+
+    # ------------------ EXIT ------------------    
+    
+    def exit(self):
+       self.destroy()
+
+    # ------------------ TRANSACTION ------------------
+
+    def create_add_transaction(self):
+        frame = tk.Frame(self.container, bg="#1e1e2f")
+        self.frames["add"] = frame
+
+        # Title
+        tk.Label(frame, text="Add Transaction", font=("Arial", 14)).grid(row=0, column=0, columnspan=2, pady=10)
+
+        # ID
+        tk.Label(frame, text="ID:").grid(row=1, column=0, sticky="w", padx=10)
+        self.id_entry = tk.Entry(frame)
+        self.id_entry.grid(row=1, column=1, padx=10)
+
+        # Date
+        tk.Label(frame, text="Date (yyyy-mm-dd):").grid(row=2, column=0, sticky="w", padx=10)
+        self.date_entry = tk.Entry(frame)
+        self.date_entry.grid(row=2, column=1, padx=10)
+
+        # Amount
+        tk.Label(frame, text="Amount:").grid(row=3, column=0, sticky="w", padx=10)
+        self.amount_entry = tk.Entry(frame)
+        self.amount_entry.grid(row=3, column=1, padx=10)
+
+        # Description
+        tk.Label(frame, text="Description:").grid(row=4, column=0, sticky="w", padx=10)
+        self.desc_entry = tk.Entry(frame)
+        self.desc_entry.grid(row=4, column=1, padx=10)
+
+        # Type
+        tk.Label(frame, text="Type:").grid(row=5, column=0, sticky="w", padx=10)
+        self.type_entry = tk.Entry(frame)
+        self.type_entry.grid(row=5, column=1, padx=10)
+
+        # Submit
+        tk.Button(frame, text="Submit", command=self.handle_add).grid(row=6, column=0, columnspan=2, pady=10)
+
+        # Back button
+        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=7, column=0, columnspan=2)
+
+    def handle_add(self):
+        id = self.id_entry.get()
+        date = self.date_entry.get()
+        amount = self.amount_entry.get()
+        desc = self.desc_entry.get()
+        type = self.type_entry.get()
+
+        self.submit_transaction(id, date, amount, desc, type)
+
+    def create_view_transactions(self):
+        frame = tk.Frame(self.container, bg="#1e1e2f")
+        self.frames["view"] = frame
+
+        self.view_text = tk.Text(frame)
+        self.view_text.pack()
+
+        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).pack()
+
+    def refresh_transactions(self):
+        self.view_text.delete("1.0", tk.END)
         transactions = self.transaction_manager.view_transactions("transactions")
-        view_window = tk.Toplevel(self)
-        view_window.title("View Transactions")
-        view_window.geometry("400x300")
-        text = tk.Text(view_window)
-        text.pack()
         for t in transactions:
-            text.insert(tk.END, f"{t}\n")
-    #Report generator screen 
-    def report_generator(self):
+            self.view_text.insert(tk.END, f"{t}\n")
+
+    # ------------------ REPORT ------------------
+
+    def create_report(self):
+        frame = tk.Frame(self.container, bg="#1e1e2f")
+        self.frames["report"] = frame
+        # Title
+        self.report_title = tk.Label(frame, text="Summary", font=("Arial", 14)).grid(row=0, column=0, columnspan=2, pady=10)
+        # Text output box
+        self.report_text = tk.Text(frame, height=15, width=40)
+        self.report_text.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
+        # Back button
+        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=2, column=0, columnspan=2, pady=10)
+
+    def refresh_report(self):
+        self.report_text.delete("1.0", tk.END)
+
         report = ReportGenerator(self.transaction_manager)
         summary = report.summary_report()
         breakdown = report.category_breakdown()
-        export_message = report.export_to_json()
-        report_window = tk.Toplevel(self)
-        report_window.title("Report")
-        report_window.geometry("400x300")
-        text = tk.Text(report_window)
-        text.pack()
-        text.insert(tk.END, "Summary Report:\n")
-        for key, value in summary.items():
-            text.insert(tk.END, f"{key}: {value}\n")
-        text.insert(tk.END, "\nCategory Breakdown:\n")
-        if breakdown:
-            for category, amount in breakdown.items():
-                text.insert(tk.END, f"{category}: {round(amount, 2)}\n")
-        else:
-            text.insert(tk.END, "No expenses found\n")
-        text.insert(tk.END, f"\n{export_message}\n")
-    def forecast_generator(self):
-        forecast=ForecastService(self.transaction_manager)
-        total_expense=forecast.forecast_monthly_expenses()
-        total_income=forecast.forecast_income_amount()
-        recurring_bills=forecast.forecast_recurring_amount()
-        total_balance=forecast.forecast_balance()
-        total_balance_after=forecast.forecast_balance_recurring()
-        Forecast_window = tk.Toplevel(self)
-        Forecast_window.title("Forecast")
-        Forecast_window.geometry("400x300")
-        text = tk.Text(Forecast_window)
-        text.pack()
-        text.insert(tk.END, "Forecasted Report:\n")
-        text.insert(tk.END, "\n")
-        text.insert(tk.END, f"Average Monthly expense: £{total_expense}\n")
-        text.insert(tk.END, f"Average Income: £{total_income}\n")
-        text.insert(tk.END, f"Current Balance: £{total_balance}\n")
-        text.insert(tk.END, f"Amount of recurring bills due in 30 days: £{recurring_bills}\n")
-        text.insert(tk.END, f"Balance after recurring bills: £{total_balance_after}\n")
-    #opens window when budgetmanager button is pressed 
-    def budget_manager(self):
-        bud_window = tk.Toplevel(self)
-        bud_window.title("Budget Manager")
-        bud_window.geometry("300x200")
-        #text to prompt the user to enter the budget 
-        tk.Label(bud_window, text="Enter the monthy budget:").pack()
-        #entry box
-        bud_entry = tk.Entry(bud_window)
-        bud_entry.pack()
-        #button to calculate budget
-        tk.Button( bud_window,text="Calculate",command=lambda: self.cal_bud(bud_entry.get())).pack(pady=10)
-        #check budget to see if it is a valid amount using validation function
+
+        self.report_text.insert(tk.END, "\n")
+        for k, v in summary.items():
+            self.report_text.insert(tk.END, f"{k}: {v}\n")
+
+        self.report_text.insert(tk.END, "\nBreakdown:\n")
+        for k, v in breakdown.items():
+            self.report_text.insert(tk.END, f"{k}: {v}\n")
+
+    # ------------------ FORECAST ------------------
+
+    def create_forecast(self):
+        frame = tk.Frame(self.container, bg="#1e1e2f")
+        self.frames["forecast"] = frame
+
+        # Title
+        tk.Label(frame, text="Forecast Report", font=("Arial", 14)).grid(row=0, column=0, columnspan=2, pady=10)
+        # Text output box
+        self.forecast_text = tk.Text(frame, height=15, width=40)
+        self.forecast_text.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
+
+        # Back button
+        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=2, column=0, columnspan=2, pady=10)
+    
+    def refresh_forecast(self):
+        forecast = ForecastService(self.transaction_manager)
+
+        text = (
+            "Forecasted Report:\n\n"
+            f"Average Monthly expense: £{forecast.forecast_monthly_expenses()}\n"
+            f"Average Income: £{forecast.forecast_income_amount()}\n"
+            f"Current Balance: £{forecast.forecast_balance()}\n"
+            f"Recurring bills (30 days): £{forecast.forecast_recurring_amount()}\n"
+            f"Balance after recurring bills: £{forecast.forecast_balance_recurring()}\n"
+        )
+
+        self.forecast_text.delete("1.0", tk.END)
+        self.forecast_text.insert(tk.END, text)
+    # ------------------ BUDGET ------------------
+
+    def create_budget(self):
+        frame = tk.Frame(self.container, bg="#1e1e2f")
+        self.frames["budget"] = frame
+
+        tk.Label(frame, text="Budget Manager").grid(row=0, column=0, columnspan=2, pady=10)
+
+        tk.Label(frame, text="Enter the monthly budget:").grid(row=1, column=0, sticky="w", padx=10)
+
+        self.budget_entry = tk.Entry(frame)
+        self.budget_entry.grid(row=1, column=1, padx=10)
+
+        tk.Button(frame, text="Calculate", command=self.handle_budget).grid(row=2, column=0, columnspan=2, pady=10)
+
+        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=3, column=0, columnspan=2)
+
+        self.budget_output = tk.Label(frame, text="", justify="left", anchor="w")
+        self.budget_output.grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+    
+    def handle_budget(self):
+        self.cal_bud(self.budget_entry.get())
+
     def cal_bud(self, monthly_budget):
-        #validation to ensure input is correct
+
+        # validation to ensure input is correct
         if not is_valid_amount(monthly_budget):
-            messagebox.showerror("Error", "Enter a valid number above 0 for the budget")
+            self.budget_output.config(text="Error: Enter a valid number above 0 for the budget")
             return
-        #checks if there are no transactions to prevent errors
+
+        # checks if there are no transactions to prevent errors
         if not self.transaction_manager.transactions:
-            messagebox.showinfo("Info", "No transactions found")
+            self.budget_output.config(text="Info: No transactions found")
             return
+
         monthly_budget = float(monthly_budget)
-    #stores the budget so it can be reused 
+
+        # stores the budget so it can be reused
         self.budget = BudgetManager(monthly_budget)
-        #calculates values using budget manager 
+
+        # calculates values using budget manager
         total = self.budget.calculate_total_expenses(self.transaction_manager)
         remaining = self.budget.remaining_budget(self.transaction_manager)
         status = self.budget.budget_status(self.transaction_manager)
-        #calculates percentage of budget used
+
+        # calculates percentage of budget used
         percentage = (total / monthly_budget) * 100
-        #displays the results to the user
-        messagebox.showinfo(
-            "Budget avaliable", f"Total expenses:{total}\nRemaing budget:{remaining}\nUsed:{percentage:.2f}%\n{status}" )
+
+        # display result
+        self.budget_output.config(
+            text=f"Budget available\n"
+                f"Total expenses:{total}\n"
+                f"Remaing budget:{remaining}\n"
+                f"Used:{percentage:.2f}%\n"
+                f"{status}"
+        )
+          
           
 if __name__ == "__main__":
   gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
