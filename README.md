@@ -1,11 +1,19 @@
 FinTrack Budget Planner
 This program was made by:
+
 Joshua Lamprecht: Team Lead
+
 Charlie Pendleton: Developer
+
 Aiden Leigh: Developer
+
 Ujala: Developer
+
 Logan Thompson-Davies: Developer
+
 Dominic Hayward: Developer
+
+
 How to use:
 First Load up the app
 Press 2 for GUI or 1 for command line version
