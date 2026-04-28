@@ -11,6 +11,8 @@ Ujala Tassawar Muhammad: Developer
 
 Logan Thompson-Davies: Developer
 
+Domonic Howard-Developer
+
 
 
 How to use:
