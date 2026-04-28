@@ -167,6 +167,7 @@ class TransactionManager:
   def __init__(self, filename="transactions"):
     self.filename = filename
     self.transactions = []
+    self.category_budgets = {}
     #opens database and stores it inside of data
     try: 
       with open(f"{filename}.json", "r") as f:
@@ -235,7 +236,6 @@ class TransactionManager:
     try:
         with open(f"{filename}.json", "r") as f:
             data=json.load(f)
-        print(data)
         return (data)
     except FileNotFoundError:
         print("file doesnt exist already, creating database now")
@@ -243,6 +243,32 @@ class TransactionManager:
     except json.JSONDecodeError:
         print("save file is corrupted! Starting fresh")
         self.save_transactions(filename)
+    
+    #this will allow the user to set a budget 
+  def set_category_budget(self, category, budget_amount):
+        self.category_budgets[category] = float(budget_amount)
+    #this would calculate how much has lalready been used 
+  def get_category_spending(self, category):
+        total = 0
+        #loop thorugh every transaction
+        for t in self.transactions:
+            #checks if the transaction is an expense and if it matches the catagory  that is getting checked 
+            if isinstance(t, Expense) and t.Category == category:
+                total += float(t.Amount)
+        return total
+  #this will check if it pushes the budget over the limit 
+  def check_cat_bud(self, category, new_amount):
+    #not set a budget for this catagory then it won't be checked 
+    if category not in self.category_budgets:
+        return None
+    #get how much has already been spent 
+    current_spending = self.get_category_spending(category)
+    budget_limit = self.category_budgets[category]
+    predicted_total = current_spending + float(new_amount)
+    #warn the user if it is over the price limit or if they are still in budget they will tell them 
+    if predicted_total > budget_limit:
+        return f"Warning: This expense will push {category} over budget. Limit: £{budget_limit:.2f}, New total: £{predicted_total:.2f}"
+    return f"{category} is still within budget. Limit: £{budget_limit:.2f}, New total: £{predicted_total:.2f}"
 
 #  Simple forecasting calculations using transaction data.
 class ForecastService:
@@ -663,7 +689,14 @@ class App(tk.Tk):
             if not is_valid_need_want(needwant):
                 messagebox.showerror("Error", "Enter either Need or Want")
                 return
-
+            #call the budget checking passes in category and amount fromt he user 
+            bud_message = self.transaction_manager.check_cat_bud(category, amount)
+            #check if the budget message exist wheathe it should warn the user 
+            if bud_message is not None and bud_message.startswith("Warning"):
+                messagebox.showwarning("Budget Alert", bud_message)
+            #if theydon't it would sow a normal poopup about them beingwithin budget 
+            elif bud_message is not None:
+                messagebox.showinfo("Budget Status", bud_message)
             transaction = Expense(id, date, amount, desc, category, int(importance), needwant)
 
         elif type_ == "RecurringBill":
@@ -687,6 +720,22 @@ class App(tk.Tk):
 
         self.transaction_manager.add_transaction(transaction)
         messagebox.showinfo("Success", "Transaction added successfully")
+        #clear all input fields after successful submission
+        self.id_entry.delete(0, tk.END)
+        self.date_entry.delete(0, tk.END)
+        self.amount_entry.delete(0, tk.END)
+        self.desc_entry.delete(0, tk.END)
+
+        #clear extra fields
+        self.source_entry.delete(0, tk.END)
+        self.tax_entry.delete(0, tk.END)
+        self.category_entry.delete(0, tk.END)
+        self.importance_entry.delete(0, tk.END)
+        self.freq_entry.delete(0, tk.END)
+        self.nextdue_entry.delete(0, tk.END)
+        self.needwant_entry.delete(0, tk.END)
+
+
 
     def create_view_transactions(self):
         frame = tk.Frame(self.container, bg="#1e1e2f")
@@ -862,7 +911,7 @@ class App(tk.Tk):
 
         tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=10, column=0, columnspan=2)
 
-        # Budget output (hidden until used)
+        # Budget output hidden until used
         self.budget_output = tk.Label(frame, text="", justify="left", anchor="w")
 
         # Progress bar (canvas version)
@@ -870,35 +919,46 @@ class App(tk.Tk):
         self.canvas_bar = self.canvas.create_rectangle(0, 0, 0, 25, fill="green")
         self.canvas_text = self.canvas.create_text(125, 12, text="")
 
+        #label for the category name the user wants to set a budget for
+        tk.Label(frame, text="Category name:").grid(row=6, column=0, sticky="w", padx=10)
+
+        #entry box for the category name
+        self.category_budget_entry = tk.Entry(frame)
+        self.category_budget_entry.grid(row=6, column=1, padx=10)
+        #label for the category budget amount
+        tk.Label(frame, text="Category budget:").grid(row=7, column=0, sticky="w", padx=10)
+        #entry box for the budget amount
+        self.category_budget_amount_entry = tk.Entry(frame)
+        self.category_budget_amount_entry.grid(row=7, column=1, padx=10)
+        #button that saves the category budget when clicked
+        tk.Button( frame, text="Set Category Budget", command=self.handle_category_budget).grid(row=8, column=0, columnspan=2, pady=10)
+
 
     def handle_budget(self):
         self.cal_bud(self.budget_entry.get())
 
 
     def cal_bud(self, monthly_budget):
-
         # hide UI until valid input is confirmed
         self.budget_output.grid_forget()
         self.canvas.grid_forget()
-
         # validation to ensure input is correct
         if not is_valid_amount(monthly_budget):
+            messagebox.showerror("Error", "Budget must be a number above 0")
             return
-
         # checks if there are no transactions to prevent errors
         if not self.transaction_manager.transactions:
+            messagebox.showerror("Error", "No transactions found")
             return
-
         monthly_budget = float(monthly_budget)
-
         # stores the budget so it can be reused
         self.budget = BudgetManager(monthly_budget)
-
+        
         # calculates values using budget manager
         total = self.budget.calculate_total_expenses(self.transaction_manager)
         remaining = self.budget.remaining_budget(self.transaction_manager)
         status = self.budget.budget_status(self.transaction_manager)
-
+        
         # calculates percentage of budget used
         percentage = (total / monthly_budget) * 100
         percentage = max(0, min(percentage, 100))
@@ -923,16 +983,28 @@ class App(tk.Tk):
         # show widgets only after valid budget
         self.budget_output.grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="w")
         self.canvas.grid(row=5, column=0, columnspan=2, pady=10)
-
         # display result
-        self.budget_output.config(
-            text=f"Budget available\n"
-                f"Total expenses:{total}\n"
-                f"Remaining budget:{remaining}\n"
-                f"Used:{percentage:.2f}%\n"
-                f"{status}"
-        )
-          
+        self.budget_output.config(text=f"Budget available\n" f"Total expenses:{total}\n"f"Remaining budget:{remaining}\n"f"Used:{percentage:.2f}%\n"f"{status}" )
+       
+       #gets the users category budget from the GUI and saves it
+    def handle_category_budget(self):
+        #gets the category entered by the user and removes extra spaces
+        category = self.category_budget_entry.get().strip()
+        #gets the budget amount entered by the user and removes extra spaces
+        budget_amount = self.category_budget_amount_entry.get().strip()
+        #checks that the category is not empty
+        if not category:
+            messagebox.showerror("Error", "Category cannot be empty")
+            return
+        #checks that the budget amount is a number above 0
+        if not is_valid_amount(budget_amount):
+            messagebox.showerror("Error", "Budget must be a number above 0")
+            return
+        #saves the category and budget amount into the transaction manager
+        self.transaction_manager.set_category_budget(category, float(budget_amount))
+        #shows the user that the budget has been set successfully
+        messagebox.showinfo( "Budget Set", f"Budget set for {category}: £{float(budget_amount):.2f}"
+    )   
           
 if __name__ == "__main__":
   gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
@@ -948,6 +1020,7 @@ Enter 2 to view the database
 Enter 3 to use the forecast service
 Enter 4 to set a budget
 Enter 5 for a report
+Enter 6 to set a category budget  
 Enter 0 to exit the program
 """
      while True:
@@ -955,7 +1028,7 @@ Enter 0 to exit the program
         try:
             choice = int(input("Enter your choice: "))
       
-            if 0 <= choice <=5:
+            if 0 <= choice <=6:
                 if choice == 0:
                     print("closing program")
                     break
@@ -1003,12 +1076,17 @@ Enter 0 to exit the program
                         ImportanceLevel = check_input_is_valid("1-10: ", valid_importance_level, "Invalid")
                         #ask user for the nput,lambda becomes the validate function 
                         NeedWant = check_input_is_valid( "Is this expense a Need or Want: ", lambda value: value.strip().capitalize() in ["Need", "Want"],  "Enter Need or Want" ).strip().capitalize()
+                        bud_message=manager.check_cat_bud(Category,Amount)
+                        if bud_message is not None:
+                            print(bud_message)
                         T = Expense(ID, Date, Amount, Description, Category, ImportanceLevel,NeedWant)
 
                     manager.add_transaction(T)
                     print("Transaction successfully added!\n")             
                 elif choice == 2:
-                    manager.view_transactions("transactions")
+                    data=manager.view_transactions("transactions")
+                    print(data)
+                #choice 3 
                 elif choice == 3:
                     forecast=ForecastService(manager)
                     #call the alll the forcat methods from the class 
@@ -1021,6 +1099,7 @@ Enter 0 to exit the program
                     print(f"the average income {total_income}.")
                     print(f"The current amount balance is £{total_balance}.")
                     print(f"The recurring bill amount due within 30 days  is £{recurring_bills}")
+                #choice 4 
                 elif choice == 4:
                     monthly_budget = check_input_is_valid(
                         "Enter your monthly budget: ",
@@ -1035,6 +1114,7 @@ Enter 0 to exit the program
                     print("Total expenses:", total)
                     print("Remaining budget:", remaining)
                     print(status)
+                #choice 6
                 elif choice == 5:
                     report = ReportGenerator(manager)
 
@@ -1055,7 +1135,11 @@ Enter 0 to exit the program
                     else:
                         print("No expenses found")
                     print(export_message)
+                elif choice == 6:
+                    category =input("Enter category name:").strip()
+                    budget_amount=check_input_is_valid("Enter the amount:",is_valid_amount,"Enter a number above 0")
+                    manager.set_category_budget(category, float(budget_amount))
             else:
-             print("Number is out of range, Enter a number between 0 and 5")
+             print("Number is out of range, Enter a number between 0 and 6")
         except ValueError:
-            print("please enter an integer between 0 and 5")
+            print("please enter an integer between 0 and 6")
