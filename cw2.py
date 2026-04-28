@@ -439,9 +439,7 @@ class ReportGenerator:
 
       except Exception as error:
           return f"Export failed: {error}"
-import tkinter as tk
-from tkinter import messagebox
-
+#class that deal with the GUI
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -734,8 +732,6 @@ class App(tk.Tk):
         self.freq_entry.delete(0, tk.END)
         self.nextdue_entry.delete(0, tk.END)
         self.needwant_entry.delete(0, tk.END)
-
-
 
     def create_view_transactions(self):
         frame = tk.Frame(self.container, bg="#1e1e2f")
