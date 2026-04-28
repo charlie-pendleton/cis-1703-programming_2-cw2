@@ -7,7 +7,7 @@ Charlie Pendleton: Developer
 
 Aiden Leigh: Developer
 
-Ujala: Developer
+Ujala Tassawar Muhammad: Developer
 
 Logan Thompson-Davies: Developer
 
