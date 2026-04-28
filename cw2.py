@@ -2,7 +2,6 @@ import json
 import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime,timedelta
-from tkinter import ttk
 #add all user inputs to a list, they dont need uniform attributes meaning expenses and incomes can have differnt end attributes.
 #filter by the attributes youy want
 #when making table get the type of transaction, then filter by just that so then its organised
@@ -70,11 +69,8 @@ def is_valid_bool(boolean):
     return True
   else:
     return False
-#validates for Need and Want ensure it is one of them no matter the format entered it will get rid of spaces and capitlise the first letter 
-def is_valid_need_want(value):
-    value = value.strip().capitalize()
-    return value == "Need" or value == "Want"
-# ensures importance level is not going higher then 10 
+
+# ensures importance level i snot going higher then 10 
 def valid_importance_level(level_str):
     try:
         level = int(level_str)
@@ -126,21 +122,21 @@ class Income(Transaction):
 
 #inheritance from super class
 class Expense(Transaction):
-  def __init__(self, ID, Date, Amount, Description, Category, ImportanceLevel,NeedWant):
+  def __init__(self, ID, Date, Amount, Description, Category, ImportanceLevel):
     super().__init__(ID, Date, Amount, Description)
     self.Category = Category
     self.ImportanceLevel = ImportanceLevel
-    self.NeedWant=NeedWant
+  
   #only in for debugging, can be removed at end, just shows values without using database   
   def __str__(self):
-    return f"ID: {self.ID}, Date: {self.Date}, Amount: {self.Amount}, Description: {self.Description}, Type: Expense, Category: {self.Category}, ImportanceLevel: {self.ImportanceLevel},NeedWant:{self.NeedWant}"
+    return f"ID: {self.ID}, Date: {self.Date}, Amount: {self.Amount}, Description: {self.Description}, Type: Expense, Category: {self.Category}, ImportanceLevel: {self.ImportanceLevel}"
+  
   #converts the data into a dictionary to be added to json database
   def to_database(self):
       data = super().to_database()
       data["Type"] = "Expense"
       data["Category"] = self.Category
       data["ImportanceLevel"] = self.ImportanceLevel
-      data["NeedWant"] = self.NeedWant
       return data
     
 
@@ -196,8 +192,7 @@ class TransactionManager:
                   float(item["Amount"]),
                   item["Description"],
                   item["Category"],
-                  item["ImportanceLevel"],
-                  item.get("NeedWant", "Want")
+                  item["ImportanceLevel"]
               )
           )
 
@@ -222,6 +217,7 @@ class TransactionManager:
   def save_transactions(self, filename):
     with open(f"{filename}.json", "w") as f:
         json.dump([t.to_database() for t in self.transactions], f, indent=4)
+  
   
   #adds transactions to database  
   def add_transaction(self, transaction):
@@ -379,26 +375,7 @@ class ReportGenerator:
                 breakdown[t.Category] += t.Amount
 
         return breakdown
-    #For the need want feature 
-    def need_want(self):
-       needs_tot=0
-       wants_tot=0
-       #loop thrugh all the transactiosn 
-       for t in self.manager.transactions:
-          if isinstance(t,Expense):
-             #check if the expense is a need 
-             if t.NeedWant == "Need":
-                needs_tot += t.Amount
-             #check if it is wants expense
-             elif t.NeedWant =="Want":
-                wants_tot += t.Amount
-       total=needs_tot +wants_tot
-       #prevent divideby zero so no crash
-       if total ==0:
-          return{"needs":0,"wants":0,"needs %":"0%","wants %":"0%"}
-       #results sreturned as dictionary.round them up percentage of them by 2 decimal points an din calulations all numbers rounded 
-       return {"Needs": round(needs_tot, 2), "Wants": round(wants_tot, 2),"Needs %": f"{(needs_tot/total)*100:.2f}%","Wants %": f"{(wants_tot/total)*100:.2f}%"
-    }
+
     # creates a json file with all the transactions 
     # try/except there to prevent any crashes 
     def export_to_json(self, filename="transactions_export"):
@@ -415,8 +392,9 @@ class ReportGenerator:
 
       except Exception as error:
           return f"Export failed: {error}"
+import tkinter as tk
+from tkinter import messagebox
 
-#this is the class that does the GUI and allows for the user to have something interaxt with 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -515,21 +493,20 @@ class App(tk.Tk):
         tk.Label(frame, text="Type:").grid(row=5, column=0, sticky="w", padx=10)
         # Dropdown Box
         self.type_var = tk.StringVar()
-        self.type_var.set("Income")  # default value
+        self.type_var.set("Income")
         # Adds dropdown box adding buttons based on the different selection
         self.type_var.trace_add("write", self.update_fields)
+
         self.type_dropdown = tk.OptionMenu(frame, self.type_var, "Income", "Expense", "RecurringBill")
         self.type_dropdown.grid(row=5, column=1, padx=10)
-        #This is the label for need want 
-        self.needwant_label = tk.Label(frame, text="Need or Want:")
-        self.needwant_entry = tk.Entry(frame)
+
         # Submit
         tk.Button(frame, text="Submit", command=self.handle_add).grid(row=10, column=0, columnspan=2, pady=10)
 
         # Back button
         tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=11, column=0, columnspan=2)
 
-    # -------- EXTRA FIELDS --------
+    # - EXTRA FIELDS -
 
         # Income fields
         self.source_label = tk.Label(frame, text="Source:")
@@ -555,15 +532,14 @@ class App(tk.Tk):
         self.update_fields()
 
     def update_fields(self, *args):
-        # Hide everything first
+        # Hides everything first
         for widget in [
             self.source_label, self.source_entry,
             self.tax_label, self.tax_entry,
             self.category_label, self.category_entry,
             self.importance_label, self.importance_entry,
             self.freq_label, self.freq_entry,
-            self.nextdue_label, self.nextdue_entry,
-            self.needwant_label, self.needwant_entry
+            self.nextdue_label, self.nextdue_entry
         ]:
             widget.grid_forget()
 
@@ -578,15 +554,11 @@ class App(tk.Tk):
             self.tax_entry.grid(row=7, column=1, padx=10)
 
         elif type_ == "Expense":
-            #category label 
             self.category_label.grid(row=6, column=0, sticky="w", padx=10)
             self.category_entry.grid(row=6, column=1, padx=10)
-            #importance level labl
+
             self.importance_label.grid(row=7, column=0, sticky="w", padx=10)
             self.importance_entry.grid(row=7, column=1, padx=10)
-            #need and want label 
-            self.needwant_label.grid(row=8, column=0, sticky="w", padx=10)
-            self.needwant_entry.grid(row=8, column=1, padx=10)
 
         elif type_ == "RecurringBill":
             self.freq_label.grid(row=6, column=0, sticky="w", padx=10)
@@ -602,98 +574,125 @@ class App(tk.Tk):
         desc = self.desc_entry.get()
         type_ = self.type_var.get()
 
-        # ID validation
+        # validation
         if not is_valid_integer(id):
-            messagebox.showerror("Error", "ID must be an integer above 0")
+            messagebox.showerror("Error", "Invalid ID")
             return
 
-        # loop through transactions and compare the id with other ids in the tranaction file ensuring it is not a duplicate 
-        for t in self.transaction_manager.transactions:
-            if str(t.ID) == str(id):
-                messagebox.showerror("Error", "ID already exists")
-                return
-
-        # date validation
         if not is_valid_date(date):
-            messagebox.showerror("Error", "Date must be in format yyyy-mm-dd")
+            messagebox.showerror("Error", "Invalid date")
             return
 
-        # amount validation
         if not is_valid_amount(amount):
-            messagebox.showerror("Error", "Amount must be a number above 0")
+            messagebox.showerror("Error", "Invalid amount")
             return
 
         amount = float(amount)
-
-        # type validation
-        if not is_valid_type(type_):
-            messagebox.showerror("Error", "Type must be Income, Expense, or RecurringBill")
-            return
-
+        # Shows only boxes related to the type of entry
         if type_ == "Income":
             source = self.source_entry.get()
             taxable = self.tax_entry.get()
-            #income validation
-            if not source.strip():
-                messagebox.showerror("Error", "Source cannot be empty")
-                return
-
-            if not is_valid_bool(taxable):
-                messagebox.showerror("Error", "Taxable must be T or F")
-                return
-
             transaction = Income(id, date, amount, desc, source, taxable)
 
         elif type_ == "Expense":
             category = self.category_entry.get()
             importance = self.importance_entry.get()
-            needwant = self.needwant_entry.get().strip().capitalize()
-            #expense validations for each entry box
-            if not category.strip():
-                messagebox.showerror("Error", "Category cannot be empty")
-                return
-            if not valid_importance_level(importance):
-                messagebox.showerror("Error", "Importance Level must be an integer between 1 and 10")
-                return
-            if not is_valid_need_want(needwant):
-                messagebox.showerror("Error", "Enter either Need or Want")
-                return
-            transaction = Expense(id, date, amount, desc, category, int(importance),needwant)
+            transaction = Expense(id, date, amount, desc, category, importance)
+
         elif type_ == "RecurringBill":
             freq = self.freq_entry.get()
             nextdue = self.nextdue_entry.get()
-            #recurring bill validation 
-            if not is_valid_integer(freq):
-                messagebox.showerror("Error", "Frequency must be an integer above 0")
-                return
-
-            if not is_valid_date(nextdue):
-                messagebox.showerror("Error", "Next Due Date must be in format yyyy-mm-dd")
-                return
-
-            transaction = RecurringBill(id, date, amount, desc, int(freq), nextdue)
+            transaction = RecurringBill(id, date, amount, desc, freq, nextdue)
 
         else:
             messagebox.showerror("Error", "Invalid type")
             return
 
         self.transaction_manager.add_transaction(transaction)
-        messagebox.showinfo("Success", "Transaction added successfully")
+        messagebox.showinfo("Success", "Transaction added")
 
     def create_view_transactions(self):
         frame = tk.Frame(self.container, bg="#1e1e2f")
         self.frames["view"] = frame
 
-        self.view_text = tk.Text(frame)
-        self.view_text.pack()
+        # Title
+        tk.Label(frame, text="Transactions", font=("Arial", 14)).pack(pady=10)
 
-        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).pack()
+        # Table container
+        self.table_frame = tk.Frame(frame)
+        self.table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Make columns expand evenly
+        for col in range(5):
+            self.table_frame.grid_columnconfigure(col, weight=1)
+
+        # Back button
+        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).pack(pady=10)
+
 
     def refresh_transactions(self):
-        self.view_text.delete("1.0", tk.END)
+        # Clear old table
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+
+        # Table headers
+        headers = ["ID", "Date", "Amount", "Type", "Description"]
+
+        for col, header in enumerate(headers):
+            tk.Label(
+                self.table_frame,
+                text=header,
+                borderwidth=1,
+                relief="solid",
+                bg="lightgray"
+            ).grid(row=0, column=col, sticky="nsew")
+
+        # Get transactions
         transactions = self.transaction_manager.view_transactions("transactions")
-        for t in transactions:
-            self.view_text.insert(tk.END, f"{t}\n")
+
+        # Fill table rows
+        for row, t in enumerate(transactions, start=1):
+            bg_color = "#f0f0f0" if row % 2 == 0 else "white"
+
+            tk.Label(
+                self.table_frame,
+                text=t.get("ID"),
+                borderwidth=1,
+                relief="solid",
+                bg=bg_color
+            ).grid(row=row, column=0, sticky="nsew")
+
+            tk.Label(
+                self.table_frame,
+                text=t.get("Date"),
+                borderwidth=1,
+                relief="solid",
+                bg=bg_color
+            ).grid(row=row, column=1, sticky="nsew")
+
+            tk.Label(
+                self.table_frame,
+                text=t.get("Amount"),
+                borderwidth=1,
+                relief="solid",
+                bg=bg_color
+            ).grid(row=row, column=2, sticky="nsew")
+
+            tk.Label(
+                self.table_frame,
+                text=t.get("Type"),
+                borderwidth=1,
+                relief="solid",
+                bg=bg_color
+            ).grid(row=row, column=3, sticky="nsew")
+
+            tk.Label(
+                self.table_frame,
+                text=t.get("Description"),
+                borderwidth=1,
+                relief="solid",
+                bg=bg_color
+            ).grid(row=row, column=4, sticky="nsew")
 
     # ------------------ REPORT ------------------
 
@@ -709,6 +708,8 @@ class App(tk.Tk):
         tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=2, column=0, columnspan=2, pady=10)
 
     def refresh_report(self):
+        # Sets state to normal to start in order to allow editing
+        self.report_text.config(state="normal")
         self.report_text.delete("1.0", tk.END)
 
         report = ReportGenerator(self.transaction_manager)
@@ -722,14 +723,8 @@ class App(tk.Tk):
         self.report_text.insert(tk.END, "\nBreakdown:\n")
         for k, v in breakdown.items():
             self.report_text.insert(tk.END, f"{k}: {v}\n")
-        # call functions
-        need_want = report.need_want()
-        # heading for it in the report 
-        self.report_text.insert(tk.END, "\nNeeds vs Wants:\n")
-        # loops through dictionary and prints all the values 
-        for k, v in need_want.items():
-            self.report_text.insert(tk.END, f"{k}: {v}\n")
-
+        # Locks text box to disable typing
+        self.report_text.config(state="disabled")
     # ------------------ FORECAST ------------------
 
     def create_forecast(self):
@@ -746,6 +741,10 @@ class App(tk.Tk):
         tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=2, column=0, columnspan=2, pady=10)
     
     def refresh_forecast(self):
+        # Opens text box to allow editing
+        self.forecast_text.config(state="normal")
+        self.forecast_text.delete("1.0", tk.END)
+
         forecast = ForecastService(self.transaction_manager)
 
         text = (
@@ -757,8 +756,10 @@ class App(tk.Tk):
             f"Balance after recurring bills: £{forecast.forecast_balance_recurring()}\n"
         )
 
-        self.forecast_text.delete("1.0", tk.END)
         self.forecast_text.insert(tk.END, text)
+
+        # Locks text to disable editing
+        self.forecast_text.config(state="disabled")
     # ------------------ BUDGET ------------------
 
     def create_budget(self):
@@ -774,24 +775,33 @@ class App(tk.Tk):
 
         tk.Button(frame, text="Calculate", command=self.handle_budget).grid(row=2, column=0, columnspan=2, pady=10)
 
-        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=3, column=0, columnspan=2)
+        tk.Button(frame, text="Back", command=lambda: self.show_frame("main")).grid(row=10, column=0, columnspan=2)
 
+        # Budget output (hidden until used)
         self.budget_output = tk.Label(frame, text="", justify="left", anchor="w")
-        self.budget_output.grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="w")
-    
+
+        # Progress bar (canvas version)
+        self.canvas = tk.Canvas(frame, width=250, height=25, bg="white", highlightthickness=1)
+        self.canvas_bar = self.canvas.create_rectangle(0, 0, 0, 25, fill="green")
+        self.canvas_text = self.canvas.create_text(125, 12, text="")
+
+
     def handle_budget(self):
         self.cal_bud(self.budget_entry.get())
 
+
     def cal_bud(self, monthly_budget):
+
+        # hide UI until valid input is confirmed
+        self.budget_output.grid_forget()
+        self.canvas.grid_forget()
 
         # validation to ensure input is correct
         if not is_valid_amount(monthly_budget):
-            self.budget_output.config(text="Error: Enter a valid number above 0 for the budget")
             return
 
         # checks if there are no transactions to prevent errors
         if not self.transaction_manager.transactions:
-            self.budget_output.config(text="Info: No transactions found")
             return
 
         monthly_budget = float(monthly_budget)
@@ -806,15 +816,38 @@ class App(tk.Tk):
 
         # calculates percentage of budget used
         percentage = (total / monthly_budget) * 100
+        percentage = max(0, min(percentage, 100))
+
+        # update progress bar width
+        bar_width = (percentage / 100) * 250
+        self.canvas.coords(self.canvas_bar, 0, 0, bar_width, 25)
+
+        # update progress bar colour
+        if percentage < 70:
+            color = "green"
+        elif percentage < 100:
+            color = "orange"
+        else:
+            color = "red"
+
+        self.canvas.itemconfig(self.canvas_bar, fill=color)
+
+        # update text
+        self.canvas.itemconfig(self.canvas_text, text=f"{percentage:.2f}%")
+
+        # show widgets only after valid budget
+        self.budget_output.grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+        self.canvas.grid(row=5, column=0, columnspan=2, pady=10)
 
         # display result
         self.budget_output.config(
             text=f"Budget available\n"
                 f"Total expenses:{total}\n"
-                f"Remaing budget:{remaining}\n"
+                f"Remaining budget:{remaining}\n"
                 f"Used:{percentage:.2f}%\n"
                 f"{status}"
         )
+          
           
 if __name__ == "__main__":
   gui_cli = input("Enter 1 for CLI or 2 for GUI: ")
@@ -823,119 +856,124 @@ if __name__ == "__main__":
       app.mainloop()    
   else:
      manager = TransactionManager()
-     user_error = 0
+     menu = """
+Welcome to the transaction manager
+Enter 1 to add to the database
+Enter 2 to view the database
+Enter 3 to use the forecast service
+Enter 4 to set a budget
+Enter 5 for a report
+Enter 0 to exit the program
+"""
      while True:
-        print("Welcome to the transaction manager")
-        print("Enter 1 to add to the database")
-        print("Enter 2 to view the database")
-        print("Enter 3 to use the forcast service")
-        print("Enter 4 to set a budget")
-        print("Enter 5 for a report")
-        print("Enter 0 to exit the program")
+        print(menu)
         try:
-           choice = int(input("Enter your choice: "))
+            choice = int(input("Enter your choice: "))
       
-           if 0 <= choice <6:
-            if choice == 0:
-             print("closing program")
-             break
-           elif choice == 1:
-             #need to check if id exists inside of the database already
-             while user_error == 0:
-               #loop to prevent duplicat IDs
-               while True:
-                 ID = check_input_is_valid("Enter the ID of the transaction: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")  
-                 ID=ID.strip()
-                 #assumes that its the only one with that ID
-                 exists=False
-                 #checck all the transations for that ID
-                 for t in  manager.transactions:
-                    #uses boolen,if it is a duplicate tthen exists becomes true 
-                    if t.ID==ID:
-                       exists= True
-                 if not exists:
+            if 0 <= choice <=5:
+                if choice == 0:
+                    print("closing program")
                     break
-                 else:
-                    print("This Id already exists ")
-               Date = check_input_is_valid("Enter the date of the expense(yyyy-mm-dd): ", is_valid_date, "Enter date in format yyyy-mm-dd")
-               Amount = check_input_is_valid("Insert the amount: ", is_valid_amount, "Enter a float above 0")
-               Amount=float(Amount)
-               Description = input("Enter Description: ")
-               type = check_input_is_valid("enter the type of transaction,these are Income, Expense, RecurringBill: ", is_valid_type, "Enter a valid type of transaction")
-               
-               if type == "Income":
-                 Source = input("Enter the Source: ")
-                 isTaxable = check_input_is_valid("is it taxable T or F: ", is_valid_bool, "Enter T or F").capitalize()
-                 
-                 T = Income(ID, Date, Amount, Description, Source, isTaxable)
-                 
-               elif type == "Expense":
-                 Category = input("Enter the Category of expense: ")
-                 ImportanceLevel = check_input_is_valid("Enter Importance Level 1-10: ", valid_importance_level, "Enter a valid integer 1-10 ")
-                 #ask user for the nput,lambda becomes the validate function 
-                 NeedWant = check_input_is_valid( "Is this expense a Need or Want: ", lambda value: value.strip().capitalize() in ["Need", "Want"],  "Enter Need or Want" ).strip().capitalize()
-                 T = Expense(ID, Date, Amount, Description, Category, ImportanceLevel,NeedWant)
-                 
-               elif type == "RecurringBill":
-                 Frequency = check_input_is_valid("Enter the Frequency of expense: ", is_valid_integer, "Enter an integer above 0 that isnt in the database")
-                 NextDueDate = check_input_is_valid("When is the next due date in the (format yyyy-mm-dd): ", is_valid_date, "Enter date in format yyyy-mm-dd")
-                 T = RecurringBill(ID, Date, Amount, Description, Frequency, NextDueDate)
-               else:
-                 print("wrong input")
-                 
-               manager.add_transaction(T)
-               break
-             
-           elif choice == 2:
-              manager.view_transactions("transactions")
-           elif choice == 3:
-             forecast=ForecastService(manager)
-             #call the alll the forcat methods from the class 
-             total_expense=forecast.forecast_monthly_expenses()
-             total_income=forecast.forecast_income_amount()
-             recurring_bills=forecast.forecast_recurring_amount()
-             total_balance=forecast.forecast_balance()
-             #this will print the visual message 
-             print(f"The average monly expense is £{total_expense}.")
-             print(f"the average income {total_income}.")
-             print(f"The current amount balance is £{total_balance}.")
-             print(f"The recurring bill amount due within 30 days  is £{recurring_bills}")
-           elif choice == 4:
-             monthly_budget = check_input_is_valid(
-                 "Enter your monthly budget: ",
-                 is_valid_amount,
-                 "Enter a number above 0"
-             )
-             monthly_budget = float(monthly_budget)
-             budget = BudgetManager(monthly_budget)
-             total = budget.calculate_total_expenses(manager)
-             remaining = budget.remaining_budget(manager)
-             status = budget.budget_status(manager)
-             print("Total expenses:", total)
-             print("Remaining budget:", remaining)
-             print(status)
-           elif choice == 5:
-             report = ReportGenerator(manager)
 
-             summary = report.summary_report()
-             breakdown = report.category_breakdown()
-             export_message = report.export_to_json()
+                elif choice == 1:
+                    print("\n--- ADD TRANSACTION MODE ---")
 
-             print("Summary Report:")
-             # loops thorugh the summary dictionary
-             for key, value in summary.items():
-                 print(key, ":", value)
-             #prints heading and creates a new line 
-             print("\nCategory Breakdown:")
-             if breakdown:
-                 #loop through categories 
-                 for category, amount in breakdown.items():
-                     print(category, ":", round(amount, 2))
-             else:
-                 print("No expenses found")
+                    while True:
+                        ID = check_input_is_valid(
+                            "Enter the ID of the transaction: ",
+                            is_valid_integer,
+                            "Enter an integer above 0"
+                        )
+                        ID = ID.strip()
 
-             print(export_message)
-           else:
+                        exists = False
+                        for t in manager.transactions:
+                            if t.ID == ID:
+                                exists = True
+
+                        if not exists:
+                            break
+                        else:
+                            print("This Id already exists")
+
+                    Date = check_input_is_valid("Enter date (yyyy-mm-dd): ", is_valid_date, "Invalid date")
+                    Amount = float(check_input_is_valid("Enter amount: ", is_valid_amount, "Invalid amount"))
+                    Description = input("Enter Description: ")
+                    type = check_input_is_valid(
+                        "Type (Income, Expense, RecurringBill): ",
+                        is_valid_type,
+                        "Invalid type"
+                    )
+
+                    print("Creating transaction...")
+
+                    if type == "Income":
+                        Source = input("Enter Source: ")
+                        isTaxable = check_input_is_valid("T or F: ", is_valid_bool, "Enter T or F")
+                        T = Income(ID, Date, Amount, Description, Source, isTaxable)
+
+                    elif type == "Expense":
+                        Category = input("Enter Category: ")
+                        ImportanceLevel = check_input_is_valid("1-10: ", valid_importance_level, "Invalid")
+                        T = Expense(ID, Date, Amount, Description, Category, ImportanceLevel)
+
+                    elif type == "RecurringBill":
+                        Frequency = check_input_is_valid("Frequency: ", is_valid_integer, "Invalid")
+                        NextDueDate = check_input_is_valid("Next due date: ", is_valid_date, "Invalid date")
+                        T = RecurringBill(ID, Date, Amount, Description, Frequency, NextDueDate)
+
+                    manager.add_transaction(T)
+                    print("Transaction successfully added!\n")             
+                elif choice == 2:
+                    manager.view_transactions("transactions")
+                elif choice == 3:
+                    forecast=ForecastService(manager)
+                    #call the alll the forcat methods from the class 
+                    total_expense=forecast.forecast_monthly_expenses()
+                    total_income=forecast.forecast_income_amount()
+                    recurring_bills=forecast.forecast_recurring_amount()
+                    total_balance=forecast.forecast_balance()
+                    # These will print the visual message 
+                    print(f"The average monly expense is £{total_expense}.")
+                    print(f"the average income {total_income}.")
+                    print(f"The current amount balance is £{total_balance}.")
+                    print(f"The recurring bill amount due within 30 days  is £{recurring_bills}")
+                elif choice == 4:
+                    monthly_budget = check_input_is_valid(
+                        "Enter your monthly budget: ",
+                        is_valid_amount,
+                        "Enter a number above 0"
+                    )
+                    monthly_budget = float(monthly_budget)
+                    budget = BudgetManager(monthly_budget)
+                    total = budget.calculate_total_expenses(manager)
+                    remaining = budget.remaining_budget(manager)
+                    status = budget.budget_status(manager)
+                    print("Total expenses:", total)
+                    print("Remaining budget:", remaining)
+                    print(status)
+                elif choice == 5:
+                    report = ReportGenerator(manager)
+
+                    summary = report.summary_report()
+                    breakdown = report.category_breakdown()
+                    export_message = report.export_to_json()
+
+                    print("Summary Report:")
+                    # loops thorugh the summary dictionary
+                    for key, value in summary.items():
+                        print(key, ":", value)
+                    #prints heading and creates a new line 
+                    print("\nCategory Breakdown:")
+                    if breakdown:
+                        #loop through categories 
+                        for category, amount in breakdown.items():
+                            print(category, ":", round(amount, 2))
+                    else:
+                        print("No expenses found")
+
+                    print(export_message)
+            else:
              print("Number is out of range, Enter a number between 0 and 5")
         except ValueError:
             print("please enter an integer between 0 and 5")
